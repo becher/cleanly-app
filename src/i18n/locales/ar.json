@@ -1,0 +1,39 @@
+{
+  "welcome": {
+    "title": "مرحباً بك في Cleanly!",
+    "subtitle": "قم بتوصيل شبكة اجتماعية لحذف منشوراتك القديمة تلقائياً.",
+    "cta": "توصيل شبكة ←"
+  },
+  "dashboard": {
+    "connectedNetworks": "الشبكات المتصلة",
+    "inProgress": "جارٍ الحذف",
+    "availableNetworks": "الشبكات المتاحة",
+    "notConnected": "غير متصل",
+    "connect": "توصيل",
+    "clean": "تنظيف",
+    "connected": "متصل"
+  },
+  "networks": {
+    "title": "الشبكات",
+    "phase1": "المرحلة 1 — متاح الآن",
+    "phase2": "المرحلة 2 — قريباً"
+  },
+  "history": {
+    "title": "السجل",
+    "empty": "لا توجد عمليات حذف بعد",
+    "deleted": "محذوف"
+  },
+  "settings": {
+    "title": "الإعدادات",
+    "language": "اللغة",
+    "theme": "المظهر",
+    "subscription": "الاشتراك",
+    "privacy": "سياسة الخصوصية",
+    "logout": "قطع الاتصال بجميع الحسابات"
+  },
+  "errors": {
+    "tokenExpired": "انتهت الجلسة. يرجى إعادة الاتصال.",
+    "rateLimited": "تم الوصول للحد الأقصى. إعادة المحاولة خلال {{seconds}} ثانية...",
+    "networkError": "خطأ في الاتصال. تحقق من الإنترنت."
+  }
+}

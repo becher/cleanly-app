@@ -1,0 +1,39 @@
+{
+  "welcome": {
+    "title": "欢迎使用 Cleanly！",
+    "subtitle": "连接一个社交网络，自动删除您的旧帖子。",
+    "cta": "连接网络 →"
+  },
+  "dashboard": {
+    "connectedNetworks": "已连接网络",
+    "inProgress": "进行中",
+    "availableNetworks": "可用网络",
+    "notConnected": "未连接",
+    "connect": "连接",
+    "clean": "清理",
+    "connected": "已连接"
+  },
+  "networks": {
+    "title": "网络",
+    "phase1": "第1阶段 — 现已可用",
+    "phase2": "第2阶段 — 即将推出"
+  },
+  "history": {
+    "title": "历史记录",
+    "empty": "暂无删除记录",
+    "deleted": "已删除"
+  },
+  "settings": {
+    "title": "设置",
+    "language": "语言",
+    "theme": "主题",
+    "subscription": "订阅",
+    "privacy": "隐私政策",
+    "logout": "断开所有账户"
+  },
+  "errors": {
+    "tokenExpired": "会话已过期，请重新连接。",
+    "rateLimited": "已达到速率限制。{{seconds}}秒后重试...",
+    "networkError": "连接错误，请检查您的网络。"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "welcome": {
+    "title": "Welcome to Cleanly!",
+    "subtitle": "Connect a social network to automatically delete your old posts.",
+    "cta": "Connect a network →"
+  },
+  "dashboard": {
+    "connectedNetworks": "Connected Networks",
+    "inProgress": "In Progress",
+    "availableNetworks": "AVAILABLE NETWORKS",
+    "notConnected": "Not connected",
+    "connect": "Connect",
+    "clean": "Clean",
+    "connected": "Connected"
+  },
+  "networks": {
+    "title": "Networks",
+    "phase1": "Phase 1 — Available now",
+    "phase2": "Phase 2 — Coming soon"
+  },
+  "history": {
+    "title": "History",
+    "empty": "No deletions yet",
+    "deleted": "deleted"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "subscription": "Subscription",
+    "privacy": "Privacy Policy",
+    "logout": "Disconnect all accounts"
+  },
+  "errors": {
+    "tokenExpired": "Session expired. Please reconnect.",
+    "rateLimited": "Rate limit reached. Retrying in {{seconds}}s...",
+    "networkError": "Connection error. Check your internet."
+  }
+}

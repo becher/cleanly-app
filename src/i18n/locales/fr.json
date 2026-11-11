@@ -1,0 +1,39 @@
+{
+  "welcome": {
+    "title": "Bienvenue sur Cleanly !",
+    "subtitle": "Connectez un réseau social pour supprimer automatiquement vos anciens posts.",
+    "cta": "Connecter un réseau →"
+  },
+  "dashboard": {
+    "connectedNetworks": "Réseaux connectés",
+    "inProgress": "En cours",
+    "availableNetworks": "RÉSEAUX DISPONIBLES",
+    "notConnected": "Non connecté",
+    "connect": "Connecter",
+    "clean": "Nettoyer",
+    "connected": "Connecté"
+  },
+  "networks": {
+    "title": "Réseaux",
+    "phase1": "Phase 1 — Disponible maintenant",
+    "phase2": "Phase 2 — Bientôt disponible"
+  },
+  "history": {
+    "title": "Historique",
+    "empty": "Aucune suppression pour l'instant",
+    "deleted": "supprimé(s)"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "language": "Langue",
+    "theme": "Thème",
+    "subscription": "Abonnement",
+    "privacy": "Politique de confidentialité",
+    "logout": "Déconnecter tous les comptes"
+  },
+  "errors": {
+    "tokenExpired": "Session expirée. Veuillez vous reconnecter.",
+    "rateLimited": "Limite atteinte. Nouvel essai dans {{seconds}}s...",
+    "networkError": "Erreur de connexion. Vérifiez votre internet."
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "welcome": {
+    "title": "Willkommen bei Cleanly!",
+    "subtitle": "Verbinde ein soziales Netzwerk, um deine alten Beiträge automatisch zu löschen.",
+    "cta": "Netzwerk verbinden →"
+  },
+  "dashboard": {
+    "connectedNetworks": "Verbundene Netzwerke",
+    "inProgress": "In Bearbeitung",
+    "availableNetworks": "VERFÜGBARE NETZWERKE",
+    "notConnected": "Nicht verbunden",
+    "connect": "Verbinden",
+    "clean": "Bereinigen",
+    "connected": "Verbunden"
+  },
+  "networks": {
+    "title": "Netzwerke",
+    "phase1": "Phase 1 — Jetzt verfügbar",
+    "phase2": "Phase 2 — Demnächst"
+  },
+  "history": {
+    "title": "Verlauf",
+    "empty": "Noch keine Löschungen",
+    "deleted": "gelöscht"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "language": "Sprache",
+    "theme": "Design",
+    "subscription": "Abonnement",
+    "privacy": "Datenschutzrichtlinie",
+    "logout": "Alle Konten trennen"
+  },
+  "errors": {
+    "tokenExpired": "Sitzung abgelaufen. Bitte erneut verbinden.",
+    "rateLimited": "Limit erreicht. Nächster Versuch in {{seconds}}s...",
+    "networkError": "Verbindungsfehler. Überprüfe dein Internet."
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "welcome": {
+    "title": "Cleanlyへようこそ！",
+    "subtitle": "SNSを接続して、古い投稿を自動的に削除しましょう。",
+    "cta": "ネットワークを接続する →"
+  },
+  "dashboard": {
+    "connectedNetworks": "接続済みネットワーク",
+    "inProgress": "処理中",
+    "availableNetworks": "利用可能なネットワーク",
+    "notConnected": "未接続",
+    "connect": "接続する",
+    "clean": "クリーンアップ",
+    "connected": "接続済み"
+  },
+  "networks": {
+    "title": "ネットワーク",
+    "phase1": "フェーズ1 — 現在利用可能",
+    "phase2": "フェーズ2 — 近日公開"
+  },
+  "history": {
+    "title": "履歴",
+    "empty": "まだ削除はありません",
+    "deleted": "削除済み"
+  },
+  "settings": {
+    "title": "設定",
+    "language": "言語",
+    "theme": "テーマ",
+    "subscription": "サブスクリプション",
+    "privacy": "プライバシーポリシー",
+    "logout": "全アカウントを切断"
+  },
+  "errors": {
+    "tokenExpired": "セッションが期限切れです。再接続してください。",
+    "rateLimited": "レート制限に達しました。{{seconds}}秒後に再試行...",
+    "networkError": "接続エラー。インターネットを確認してください。"
+  }
+}

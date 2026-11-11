@@ -1,0 +1,39 @@
+{
+  "welcome": {
+    "title": "¡Bienvenido a Cleanly!",
+    "subtitle": "Conecta una red social para eliminar automáticamente tus publicaciones antiguas.",
+    "cta": "Conectar una red →"
+  },
+  "dashboard": {
+    "connectedNetworks": "Redes conectadas",
+    "inProgress": "En progreso",
+    "availableNetworks": "REDES DISPONIBLES",
+    "notConnected": "No conectado",
+    "connect": "Conectar",
+    "clean": "Limpiar",
+    "connected": "Conectado"
+  },
+  "networks": {
+    "title": "Redes",
+    "phase1": "Fase 1 — Disponible ahora",
+    "phase2": "Fase 2 — Próximamente"
+  },
+  "history": {
+    "title": "Historial",
+    "empty": "Aún no hay eliminaciones",
+    "deleted": "eliminado(s)"
+  },
+  "settings": {
+    "title": "Configuración",
+    "language": "Idioma",
+    "theme": "Tema",
+    "subscription": "Suscripción",
+    "privacy": "Política de privacidad",
+    "logout": "Desconectar todas las cuentas"
+  },
+  "errors": {
+    "tokenExpired": "Sesión expirada. Por favor, reconéctate.",
+    "rateLimited": "Límite alcanzado. Reintentando en {{seconds}}s...",
+    "networkError": "Error de conexión. Verifica tu internet."
+  }
+}
