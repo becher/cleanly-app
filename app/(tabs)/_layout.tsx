@@ -1,70 +1,55 @@
-import { SymbolView } from 'expo-symbols';
-import { Link, Tabs } from 'expo-router';
-import { Platform, Pressable } from 'react-native';
-
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import { Tabs } from 'expo-router';
+import { Platform } from 'react-native';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
-      }}>
+        tabBarActiveTintColor: '#6C63FF',
+        tabBarInactiveTintColor: '#5A5A70',
+        tabBarStyle: {
+          backgroundColor: '#13131A',
+          borderTopColor: '#2A2A3A',
+        },
+        headerStyle: { backgroundColor: '#0A0A0F' },
+        headerTintColor: '#F8F8FF',
+        headerTitleStyle: { fontWeight: '700' },
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
-            />
-          ),
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable style={{ marginRight: 15 }}>
-                {({ pressed }) => (
-                  <SymbolView
-                    name={{ ios: 'info.circle', android: 'info', web: 'info' }}
-                    size={25}
-                    tintColor={Colors[colorScheme].text}
-                    style={{ opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
+          title: 'Dashboard',
+          tabBarIcon: ({ color }) => <TabBarIcon name="🏠" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="two"
+        name="networks"
         options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
-            />
-          ),
+          title: 'Réseaux',
+          tabBarIcon: ({ color }) => <TabBarIcon name="🌐" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: 'Historique',
+          tabBarIcon: ({ color }) => <TabBarIcon name="📋" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Paramètres',
+          tabBarIcon: ({ color }) => <TabBarIcon name="⚙️" color={color} />,
         }}
       />
     </Tabs>
+  );
+}
+
+function TabBarIcon({ name, color }: { name: string; color: string }) {
+  return (
+    <span style={{ fontSize: 20, color }}>{name}</span>
   );
 }
