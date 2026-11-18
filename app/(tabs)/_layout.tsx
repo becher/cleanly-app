@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
+import { ColorValue } from 'react-native';
 
 export default function TabLayout() {
   return (
@@ -48,8 +48,9 @@ export default function TabLayout() {
   );
 }
 
-function TabBarIcon({ name, color }: { name: string; color: string }) {
+// color est un ColorValue RN (string | number | null | OpaqueColorValue)
+function TabBarIcon({ name, color }: { name: string; color: ColorValue }) {
   return (
-    <span style={{ fontSize: 20, color }}>{name}</span>
+    <span style={{ fontSize: 20, color: color as string }}>{name}</span>
   );
 }

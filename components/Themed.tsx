@@ -13,8 +13,10 @@ type ThemeProps = {
   darkColor?: string;
 };
 
-export type TextProps = ThemeProps & DefaultText['props'];
-export type ViewProps = ThemeProps & DefaultView['props'];
+// SDK 58 : les types de props ont changé — utilisation directe
+import { TextProps as RNTextProps, ViewProps as RNViewProps } from 'react-native';
+export type TextProps = ThemeProps & RNTextProps;
+export type ViewProps = ThemeProps & RNViewProps;
 
 export function useThemeColor(
   props: { light?: string; dark?: string },

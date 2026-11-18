@@ -31,8 +31,8 @@ export default function RootLayout() {
   }, [fontError]);
 
   useEffect(() => {
-    // Initialiser SQLite
-    initDatabase().catch(console.error);
+    // Initialiser SQLite (synchrone — pas de Promise)
+    try { initDatabase(); } catch (e) { console.error(e); }
 
     // RTL automatique pour l'arabe
     const isRTL = i18n.language === 'ar';
