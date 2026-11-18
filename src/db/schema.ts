@@ -2,19 +2,18 @@
 // Sur Expo Go : toutes les fonctions sont des no-op (aucun crash)
 // Sur dev build / EAS : SQLite WAL complet
 
-// Vérifie si expo-sqlite est disponible (dev build uniquement)
 let SQLite: typeof import('expo-sqlite') | null = null;
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  SQLite = require('expo-sqlite');
+  SQLite = require('expo-sqlite') as typeof import('expo-sqlite');
 } catch {
   // Expo Go : pas de module natif → mode dégradé
 }
 
-// DB instance (null sur Expo Go)
-let _db: ReturnType<typeof SQLite['openDatabaseSync']> | null = null;
+type SQLiteDB = ReturnType<NonNullable<typeof SQLite>['openDatabaseSync']>;
+let _db: SQLiteDB | null = null;
 
-function getDb() {
+function getDb(): SQLiteDB | null {
   if (!SQLite) return null;
   if (!_db) {
     _db = SQLite.openDatabaseSync('cleanly.db');

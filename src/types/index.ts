@@ -34,6 +34,7 @@ export interface PlatformAccount {
   displayName: string;
   avatar?: string;
   token: string;
+  refreshToken?: string;   // OAuth refresh token (optionnel)
   tokenExpiry?: number;
   connectedAt: number;
 }

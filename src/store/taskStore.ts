@@ -56,7 +56,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   getStats: (platform) => {
     const db = getDb();
     if (!db) return { total: 0, done: 0, pending: 0, failed: 0 };
-    const rows = db.getAllSync<{ status: string; count: number }>(
+    const rows = (db.getAllSync as (sql: string, params?: unknown[]) => { status: string; count: number }[])(
       `SELECT status, COUNT(*) as count
        FROM deletion_queue WHERE platform = ? GROUP BY status`,
       [platform]
@@ -75,17 +75,11 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     const db = getDb();
     if (!db) return;
     // Lire les tâches actives depuis SQLite
-    const rows = db.getAllSync<{
-      platform: string;
-      account_id: string;
-      status: string;
-      pending: number;
-      done: number;
-    }>(
+    const rows = (db.getAllSync as (sql: string) => Array<{
+      platform: string; account_id: string; status: string; pending: number; done: number;
+    }>)(
       `SELECT
-         platform,
-         account_id,
-         status,
+         platform, account_id, status,
          SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done,
          COUNT(*) as pending
        FROM deletion_queue
@@ -93,7 +87,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
        GROUP BY platform, account_id`
     );
 
-    const activeTasks: ActiveTask[] = rows.map((row, i) => ({
+    const activeTasks: ActiveTask[] = rows.map((row, i: number) => ({
       id: i,
       platform: row.platform,
       accountId: row.account_id,
