@@ -65,3 +65,4 @@ export function getDiscordAvatarUrl(userId: string, avatarHash: string | null): 
   }
   return `https://cdn.discordapp.com/avatars/${userId}/${avatarHash}.png?size=128`;
 }
+

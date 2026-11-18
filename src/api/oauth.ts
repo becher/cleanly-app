@@ -1,80 +1,67 @@
-// OAuth générique — flow PKCE avec expo-auth-session
-// Réutilisable pour toutes les plateformes
+// OAuth générique — PKCE avec expo-auth-session
+// ⚠️  Ce fichier NE DOIT PAS être importé au top-level
+// Utiliser uniquement via require() dynamique dans useConnect.ts
 
+// Ces imports sont OK ici car oauth.ts lui-même n'est chargé que lazily
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
-import * as Crypto from 'expo-crypto';
 
-// Nécessaire pour fermer le navigateur automatiquement sur Android
+// Ferme le navigateur automatiquement sur Android
 WebBrowser.maybeCompleteAuthSession();
 
 export type OAuthResult = {
-  accessToken: string;
+  accessToken:   string;
   refreshToken?: string;
-  expiresIn?: number;
-  scope?: string;
+  expiresIn?:    number;
+  scope?:        string;
 };
 
 export type OAuthConfig = {
-  clientId: string;
+  clientId:              string;
   authorizationEndpoint: string;
-  tokenEndpoint: string;
-  scopes: string[];
-  redirectUri?: string;
+  tokenEndpoint:         string;
+  scopes:                string[];
+  redirectUri?:          string;
 };
 
 /**
- * Lance un flow OAuth2 PKCE
- * Ouvre le navigateur in-app, récupère le code, échange contre un token
+ * Lance un flow OAuth2 avec PKCE
  */
 export async function launchOAuth(config: OAuthConfig): Promise<OAuthResult> {
-  // URI de redirection Expo
   const redirectUri = config.redirectUri ?? AuthSession.makeRedirectUri({
     scheme: 'cleanly',
   });
 
-  // PKCE : code verifier + challenge
-  const codeVerifier = generateCodeVerifier();
-  const codeChallenge = await generateCodeChallenge(codeVerifier);
-
-  // Construire la requête d'autorisation
+  // Utiliser AuthSession.loadAsync pour éviter le PKCE natif (Expo Go compat)
   const request = new AuthSession.AuthRequest({
-    clientId: config.clientId,
+    clientId:   config.clientId,
     redirectUri,
-    scopes: config.scopes,
-    usePKCE: true,
-    codeChallenge,
+    scopes:     config.scopes,
+    usePKCE:    true,
     codeChallengeMethod: AuthSession.CodeChallengeMethod.S256,
   });
 
-  // Ouvrir le navigateur OAuth
   const result = await request.promptAsync({
     authorizationEndpoint: config.authorizationEndpoint,
   });
 
   if (result.type !== 'success' || !result.params.code) {
-    throw new Error(`OAuth annulé ou échoué : ${result.type}`);
+    throw new Error(`OAuth annulé : ${result.type}`);
   }
 
-  // Échanger le code contre un access token
-  const tokenResponse = await exchangeCode({
-    code: result.params.code,
-    codeVerifier,
-    clientId: config.clientId,
+  // Échange code → token
+  return exchangeCode({
+    code:          result.params.code,
+    codeVerifier:  request.codeVerifier ?? '',
+    clientId:      config.clientId,
     redirectUri,
     tokenEndpoint: config.tokenEndpoint,
   });
-
-  return tokenResponse;
 }
 
-// Échanger le code d'autorisation contre un token
 async function exchangeCode(params: {
-  code: string;
-  codeVerifier: string;
-  clientId: string;
-  redirectUri: string;
-  tokenEndpoint: string;
+  code: string; codeVerifier: string;
+  clientId: string; redirectUri: string; tokenEndpoint: string;
 }): Promise<OAuthResult> {
   const body = new URLSearchParams({
     grant_type:    'authorization_code',
@@ -84,48 +71,21 @@ async function exchangeCode(params: {
     code_verifier: params.codeVerifier,
   });
 
-  const response = await fetch(params.tokenEndpoint, {
+  const res = await fetch(params.tokenEndpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Token exchange failed: ${response.status} — ${error}`);
+  if (!res.ok) {
+    throw new Error(`Token exchange failed: ${res.status}`);
   }
 
-  const data = await response.json();
-
+  const data = await res.json() as Record<string, string | number>;
   return {
-    accessToken:  data.access_token,
-    refreshToken: data.refresh_token,
-    expiresIn:    data.expires_in,
-    scope:        data.scope,
+    accessToken:  data['access_token'] as string,
+    refreshToken: data['refresh_token'] as string | undefined,
+    expiresIn:    data['expires_in'] as number | undefined,
+    scope:        data['scope'] as string | undefined,
   };
-}
-
-// PKCE helpers
-function generateCodeVerifier(): string {
-  const array = new Uint8Array(32);
-  // Remplir avec des valeurs pseudo-aléatoires
-  for (let i = 0; i < array.length; i++) {
-    array[i] = Math.floor(Math.random() * 256);
-  }
-  return base64UrlEncode(array);
-}
-
-async function generateCodeChallenge(verifier: string): Promise<string> {
-  const digest = await Crypto.digestStringAsync(
-    Crypto.CryptoDigestAlgorithm.SHA256,
-    verifier,
-    { encoding: Crypto.CryptoEncoding.BASE64 }
-  );
-  // Convertir base64 → base64url
-  return digest.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
-function base64UrlEncode(array: Uint8Array): string {
-  const base64 = btoa(String.fromCharCode(...array));
-  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
