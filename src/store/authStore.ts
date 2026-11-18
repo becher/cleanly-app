@@ -49,3 +49,4 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // (implémentation complète à venir)
   },
 }));
+
