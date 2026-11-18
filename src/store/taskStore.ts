@@ -3,7 +3,16 @@
 
 import { create } from 'zustand';
 import { Platform } from '../types';
-import { db } from '../db/schema';
+
+// Import lazy de SQLite — crash si Expo Go (pas de native module)
+function getDb() {
+  try {
+    const { db } = require('../db/schema');
+    return db;
+  } catch {
+    return null;
+  }
+}
 
 // Type d'une tâche active pour l'UI
 export type ActiveTask = {
@@ -33,6 +42,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   activeTasks: [],
 
   enqueue: (platform, accountId, contentId, contentType) => {
+    const db = getDb();
+    if (!db) return;
     db.runSync(
       `INSERT OR IGNORE INTO deletion_queue
        (platform, account_id, content_id, content_type)
@@ -43,6 +54,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   },
 
   getStats: (platform) => {
+    const db = getDb();
+    if (!db) return { total: 0, done: 0, pending: 0, failed: 0 };
     const rows = db.getAllSync<{ status: string; count: number }>(
       `SELECT status, COUNT(*) as count
        FROM deletion_queue WHERE platform = ? GROUP BY status`,
@@ -59,6 +72,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   },
 
   refreshTasks: () => {
+    const db = getDb();
+    if (!db) return;
     // Lire les tâches actives depuis SQLite
     const rows = db.getAllSync<{
       platform: string;

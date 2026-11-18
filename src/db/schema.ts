@@ -1,8 +1,34 @@
-import * as SQLite from 'expo-sqlite';
+// schema.ts — Base de données SQLite avec fallback Expo Go
+// Sur Expo Go : toutes les fonctions sont des no-op (aucun crash)
+// Sur dev build / EAS : SQLite WAL complet
 
-const db = SQLite.openDatabaseSync('cleanly.db');
+// Vérifie si expo-sqlite est disponible (dev build uniquement)
+let SQLite: typeof import('expo-sqlite') | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  SQLite = require('expo-sqlite');
+} catch {
+  // Expo Go : pas de module natif → mode dégradé
+}
+
+// DB instance (null sur Expo Go)
+let _db: ReturnType<typeof SQLite['openDatabaseSync']> | null = null;
+
+function getDb() {
+  if (!SQLite) return null;
+  if (!_db) {
+    _db = SQLite.openDatabaseSync('cleanly.db');
+  }
+  return _db;
+}
 
 export function initDatabase(): void {
+  const db = getDb();
+  if (!db) {
+    console.warn('[Cleanly] SQLite indisponible — Expo Go mode. Utilise un dev build pour la persistance.');
+    return;
+  }
+
   db.execSync(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
@@ -46,5 +72,18 @@ export function initDatabase(): void {
   `);
 }
 
-export { db };
-
+// Objet db sécurisé — retourne des no-ops si SQLite indisponible
+export const db = {
+  runSync: (sql: string, params?: unknown[]) => {
+    getDb()?.runSync(sql, params as any);
+  },
+  getAllSync: <T>(sql: string, params?: unknown[]): T[] => {
+    return (getDb()?.getAllSync<T>(sql, params as any)) ?? [];
+  },
+  getFirstSync: <T>(sql: string, params?: unknown[]): T | null => {
+    return (getDb()?.getFirstSync<T>(sql, params as any)) ?? null;
+  },
+  execSync: (sql: string) => {
+    getDb()?.execSync(sql);
+  },
+};

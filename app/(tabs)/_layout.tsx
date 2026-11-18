@@ -1,56 +1,70 @@
+// Tab navigation — Clean Light theme
 import { Tabs } from 'expo-router';
-import { ColorValue } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { theme } from '../../src/constants/theme';
 
 export default function TabLayout() {
+  // Inset bas = hauteur de la barre système (gestes Redmi, boutons Samsung...)
+  const { bottom } = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#6C63FF',
-        tabBarInactiveTintColor: '#5A5A70',
+        tabBarActiveTintColor:   theme.accent.primary,
+        tabBarInactiveTintColor: theme.text.muted,
         tabBarStyle: {
-          backgroundColor: '#13131A',
-          borderTopColor: '#2A2A3A',
+          backgroundColor: theme.bg.surface,
+          borderTopColor:  theme.border.default,
+          borderTopWidth:  1,
+          // Hauteur dynamique selon l'inset système
+          height: 56 + bottom,
+          paddingBottom: bottom + 4,
+          paddingTop: 6,
         },
-        headerStyle: { backgroundColor: '#0A0A0F' },
-        headerTintColor: '#F8F8FF',
-        headerTitleStyle: { fontWeight: '700' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        headerStyle: { backgroundColor: theme.bg.surface },
+        headerTintColor: theme.text.primary,
+        headerTitleStyle: { fontWeight: '700', fontSize: 17 },
+        headerShadowVisible: false,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ color }) => <TabBarIcon name="🏠" color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="grid" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="networks"
         options={{
           title: 'Réseaux',
-          tabBarIcon: ({ color }) => <TabBarIcon name="🌐" color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="share-social" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
           title: 'Historique',
-          tabBarIcon: ({ color }) => <TabBarIcon name="📋" color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="time" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Paramètres',
-          tabBarIcon: ({ color }) => <TabBarIcon name="⚙️" color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="settings" size={size} color={color} />
+          ),
         }}
       />
     </Tabs>
-  );
-}
-
-// color est un ColorValue RN (string | number | null | OpaqueColorValue)
-function TabBarIcon({ name, color }: { name: string; color: ColorValue }) {
-  return (
-    <span style={{ fontSize: 20, color: color as string }}>{name}</span>
   );
 }

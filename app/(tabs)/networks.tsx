@@ -1,103 +1,89 @@
-// Écran Réseaux — connexion des comptes sociaux
-// Affiche les 8 réseaux Phase 1 avec leur statut
-
+// Réseaux — Clean Light theme
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useTranslation } from 'react-i18next';
+import { FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
+import { theme, PLATFORM_COLORS } from '../../src/constants/theme';
 
-// Config des réseaux Phase 1
-const PHASE1_NETWORKS = [
-  { id: 'discord',  name: 'Discord',          icon: '🟣', color: '#5865F2' },
-  { id: 'twitter',  name: 'X / Twitter',       icon: '🐦', color: '#000000' },
-  { id: 'reddit',   name: 'Reddit',            icon: '🟠', color: '#FF4500' },
-  { id: 'bluesky',  name: 'Bluesky',           icon: '🦋', color: '#0085FF' },
-  { id: 'mastodon', name: 'Mastodon',          icon: '🐘', color: '#6364FF' },
-  { id: 'threads',  name: 'Threads',           icon: '🧵', color: '#000000' },
-  { id: 'youtube',  name: 'YouTube',           icon: '▶️', color: '#FF0000' },
-  { id: 'teams',    name: 'Microsoft Teams',   icon: '💜', color: '#6264A7' },
-];
+const PHASE1 = [
+  { id: 'discord',  name: 'Discord',          lib: 'fa5', icon: 'discord'          },
+  { id: 'twitter',  name: 'X / Twitter',       lib: 'fa5', icon: 'twitter'          },
+  { id: 'reddit',   name: 'Reddit',            lib: 'fa5', icon: 'reddit'           },
+  { id: 'mastodon', name: 'Mastodon',          lib: 'fa5', icon: 'mastodon'         },
+  { id: 'youtube',  name: 'YouTube',           lib: 'fa5', icon: 'youtube'          },
+  { id: 'bluesky',  name: 'Bluesky',           lib: 'mci', icon: 'butterfly-outline'},
+  { id: 'threads',  name: 'Threads',           lib: 'mci', icon: 'at'               },
+  { id: 'teams',    name: 'Microsoft Teams',   lib: 'mci', icon: 'microsoft-teams'  },
+] as const;
 
-// Config des réseaux Phase 2 (bientôt)
-const PHASE2_NETWORKS = [
-  { id: 'instagram', name: 'Instagram', icon: '📸', color: '#E1306C' },
-  { id: 'facebook',  name: 'Facebook',  icon: '📘', color: '#1877F2' },
-  { id: 'linkedin',  name: 'LinkedIn',  icon: '💼', color: '#0A66C2' },
-  { id: 'tiktok',   name: 'TikTok',    icon: '🎵', color: '#010101' },
-  { id: 'slack',    name: 'Slack',     icon: '💬', color: '#4A154B' },
-];
+const PHASE2 = [
+  { id: 'instagram', name: 'Instagram', lib: 'fa5', icon: 'instagram' },
+  { id: 'facebook',  name: 'Facebook',  lib: 'fa5', icon: 'facebook'  },
+  { id: 'linkedin',  name: 'LinkedIn',  lib: 'fa5', icon: 'linkedin'  },
+  { id: 'tiktok',   name: 'TikTok',    lib: 'fa5', icon: 'tiktok'    },
+  { id: 'slack',    name: 'Slack',     lib: 'fa5', icon: 'slack'      },
+] as const;
 
 export default function NetworksScreen() {
-  const { t } = useTranslation();
-
-  // Connexion → à implémenter avec OAuth (expo-auth-session)
-  function handleConnect(networkName: string) {
-    Alert.alert(
-      `Connecter ${networkName}`,
-      'L\'authentification OAuth sera bientôt disponible.',
-      [{ text: 'OK' }]
-    );
+  function handleConnect(name: string) {
+    Alert.alert(`Connecter ${name}`, 'Authentification OAuth disponible bientôt.', [{ text: 'OK' }]);
   }
 
   return (
-    <ScrollView style={styles.page}>
-      {/* Phase 1 — Disponible */}
-      <Text style={styles.sectionLabel}>{t('networks.phase1')}</Text>
-      {PHASE1_NETWORKS.map((network) => (
-        <NetworkRow
-          key={network.id}
-          network={network}
-          isAvailable={true}
-          onConnect={() => handleConnect(network.name)}
-        />
-      ))}
+    <ScrollView style={styles.page} showsVerticalScrollIndicator={false}>
 
-      {/* Phase 2 — Bientôt */}
-      <Text style={[styles.sectionLabel, { marginTop: 24 }]}>{t('networks.phase2')}</Text>
-      {PHASE2_NETWORKS.map((network) => (
-        <NetworkRow
-          key={network.id}
-          network={network}
-          isAvailable={false}
-          onConnect={() => {}}
-        />
-      ))}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Disponibles</Text>
+        {PHASE1.map((p) => (
+          <PlatformRow
+            key={p.id}
+            id={p.id} name={p.name} lib={p.lib} icon={p.icon}
+            available onConnect={() => handleConnect(p.name)}
+          />
+        ))}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Bientôt disponibles</Text>
+        {PHASE2.map((p) => (
+          <PlatformRow
+            key={p.id}
+            id={p.id} name={p.name} lib={p.lib} icon={p.icon}
+            available={false} onConnect={() => {}}
+          />
+        ))}
+      </View>
     </ScrollView>
   );
 }
 
-// Composant : ligne d'un réseau
-function NetworkRow({
-  network,
-  isAvailable,
-  onConnect,
-}: {
-  network: { id: string; name: string; icon: string; color: string };
-  isAvailable: boolean;
-  onConnect: () => void;
+function PlatformRow({ id, name, lib, icon, available, onConnect }: {
+  id: string; name: string; lib: string; icon: string;
+  available: boolean; onConnect: () => void;
 }) {
+  const color = PLATFORM_COLORS[id] ?? theme.accent.primary;
   return (
-    <View style={[styles.row, !isAvailable && styles.rowDisabled]}>
-      {/* Icône */}
-      <Text style={styles.icon}>{network.icon}</Text>
-
-      {/* Nom */}
-      <View style={styles.info}>
-        <Text style={styles.name}>{network.name}</Text>
-        <Text style={styles.status}>
-          {isAvailable ? 'Non connecté' : 'Bientôt disponible'}
+    <View style={[styles.row, !available && { opacity: 0.45 }]}>
+      <View style={[styles.iconBox, { backgroundColor: color + '15' }]}>
+        {lib === 'fa5'
+          ? <FontAwesome5 name={icon as any} size={22} color={color} brand />
+          : <MaterialCommunityIcons name={icon as any} size={22} color={color} />
+        }
+      </View>
+      <View style={styles.rowInfo}>
+        <Text style={styles.rowName}>{name}</Text>
+        <Text style={[styles.rowStatus, available && { color: theme.accent.green }]}>
+          {available ? '● Prêt' : '○ Bientôt'}
         </Text>
       </View>
-
-      {/* Bouton */}
-      {isAvailable ? (
+      {available ? (
         <TouchableOpacity
-          style={[styles.btn, { backgroundColor: network.color }]}
-          onPress={onConnect}
+          style={[styles.connectBtn, { backgroundColor: color }]}
+          onPress={onConnect} activeOpacity={0.85}
         >
-          <Text style={styles.btnText}>Connecter</Text>
+          <Text style={styles.connectBtnText}>Connecter</Text>
         </TouchableOpacity>
       ) : (
-        <View style={styles.btnSoon}>
-          <Text style={styles.btnSoonText}>Bientôt</Text>
+        <View style={styles.soonBadge}>
+          <Text style={styles.soonText}>Bientôt</Text>
         </View>
       )}
     </View>
@@ -105,64 +91,44 @@ function NetworkRow({
 }
 
 const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: '#0A0A0F',
-    padding: 16,
-  },
-  sectionLabel: {
-    color: '#5A5A70',
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 1.2,
-    marginBottom: 12,
+  page: { flex: 1, backgroundColor: theme.bg.base },
+  section: { padding: theme.space.md, paddingBottom: 0 },
+  sectionTitle: {
+    color: theme.text.primary,
+    fontSize: 16, fontWeight: '700',
+    marginBottom: 10,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#13131A',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#2A2A3A',
+    backgroundColor: theme.bg.surface,
+    borderRadius: theme.radius.lg,
+    padding: 12,
+    marginBottom: 8,
     gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  rowDisabled: {
-    opacity: 0.4,
+  iconBox: {
+    width: 44, height: 44,
+    borderRadius: theme.radius.md,
+    alignItems: 'center', justifyContent: 'center',
   },
-  icon: { fontSize: 28 },
-  info: { flex: 1 },
-  name: {
-    color: '#F8F8FF',
-    fontSize: 16,
-    fontWeight: '600',
+  rowInfo: { flex: 1 },
+  rowName: { color: theme.text.primary, fontSize: 15, fontWeight: '600' },
+  rowStatus: { color: theme.text.muted, fontSize: 12, marginTop: 2 },
+  connectBtn: {
+    borderRadius: theme.radius.full,
+    paddingHorizontal: 14, paddingVertical: 8,
   },
-  status: {
-    color: '#5A5A70',
-    fontSize: 13,
-    marginTop: 2,
+  connectBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+  soonBadge: {
+    borderRadius: theme.radius.full,
+    paddingHorizontal: 14, paddingVertical: 8,
+    backgroundColor: theme.bg.raised,
   },
-  btn: {
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  btnText: {
-    color: '#FFF',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  btnSoon: {
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#2A2A3A',
-  },
-  btnSoonText: {
-    color: '#5A5A70',
-    fontSize: 13,
-    fontWeight: '600',
-  },
+  soonText: { color: theme.text.muted, fontSize: 13, fontWeight: '600' },
 });
-

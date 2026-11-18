@@ -1,103 +1,79 @@
-// Écran Historique — liste des suppressions effectuées
-// Pour l'instant vide — sera alimenté par la queue SQLite
-
+// Historique — Clean Light theme
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
+import { theme } from '../../src/constants/theme';
 
 export default function HistoryScreen() {
-  const { t } = useTranslation();
-
-  // TODO : lire depuis src/store/taskStore (deletionHistory)
-  const history: HistoryItem[] = [];
+  const history: any[] = []; // TODO: lire depuis SQLite
 
   return (
-    <ScrollView style={styles.page}>
+    <ScrollView style={styles.page} showsVerticalScrollIndicator={false}>
       {history.length === 0 ? (
-        // État vide
-        <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>📋</Text>
-          <Text style={styles.emptyTitle}>{t('history.empty')}</Text>
+        <View style={styles.emptyCard}>
+          <View style={styles.emptyIconBox}>
+            <Ionicons name="time-outline" size={36} color={theme.text.muted} />
+          </View>
+          <Text style={styles.emptyTitle}>Aucune suppression</Text>
           <Text style={styles.emptyText}>
-            Les posts supprimés apparaîtront ici.
+            L'historique de tes suppressions apparaîtra ici.
           </Text>
         </View>
       ) : (
-        // Liste des suppressions
-        history.map((item) => (
-          <HistoryRow key={item.id} item={item} />
-        ))
+        <View style={{ padding: theme.space.md }}>
+          {history.map((item: any) => (
+            <View key={item.id} style={styles.row}>
+              <Text style={styles.platform}>{item.platform}</Text>
+              <Text style={styles.count}>{item.count} supprimés</Text>
+              <Text style={styles.date}>{item.deletedAt}</Text>
+            </View>
+          ))}
+        </View>
       )}
     </ScrollView>
   );
 }
 
-// Type d'un item d'historique
-type HistoryItem = {
-  id: string;
-  platform: string;
-  contentType: string;
-  deletedAt: string;
-  count: number;
-};
-
-// Composant : ligne d'historique
-function HistoryRow({ item }: { item: HistoryItem }) {
-  const { t } = useTranslation();
-  return (
-    <View style={styles.row}>
-      <Text style={styles.platform}>{item.platform}</Text>
-      <Text style={styles.count}>
-        {item.count} {t('history.deleted')}
-      </Text>
-      <Text style={styles.date}>{item.deletedAt}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: '#0A0A0F',
-    padding: 16,
-  },
-  empty: {
+  page: { flex: 1, backgroundColor: theme.bg.base },
+  emptyCard: {
+    backgroundColor: theme.bg.surface,
+    margin: theme.space.md,
+    borderRadius: theme.radius.xl,
+    padding: theme.space.xl,
     alignItems: 'center',
-    marginTop: 80,
-    gap: 12,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  emptyIcon: { fontSize: 56 },
+  emptyIconBox: {
+    width: 72, height: 72,
+    borderRadius: theme.radius.full,
+    backgroundColor: theme.bg.raised,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 4,
+  },
   emptyTitle: {
-    color: '#F8F8FF',
-    fontSize: 18,
-    fontWeight: '700',
+    color: theme.text.primary, fontSize: 17, fontWeight: '700',
   },
   emptyText: {
-    color: '#5A5A70',
-    fontSize: 14,
-    textAlign: 'center',
+    color: theme.text.secondary, fontSize: 14,
+    textAlign: 'center', lineHeight: 20,
   },
   row: {
-    backgroundColor: '#13131A',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#2A2A3A',
+    backgroundColor: theme.bg.surface,
+    borderRadius: theme.radius.lg,
+    padding: theme.space.md,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  platform: {
-    color: '#F8F8FF',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  count: {
-    color: '#6C63FF',
-    fontSize: 13,
-    marginTop: 4,
-  },
-  date: {
-    color: '#5A5A70',
-    fontSize: 12,
-    marginTop: 4,
-  },
+  platform: { color: theme.text.primary, fontSize: 15, fontWeight: '600' },
+  count: { color: theme.accent.primary, fontSize: 13, marginTop: 4 },
+  date: { color: theme.text.muted, fontSize: 12, marginTop: 2 },
 });
-

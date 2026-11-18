@@ -1,143 +1,125 @@
-// NetworkCard — carte réseau réutilisable
-// Affiche : icône, nom, statut, bouton action
-
+// NetworkCard — Clean Light theme
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
+import { theme } from '../constants/theme';
+
+type PlatformIconConfig =
+  | { lib: 'fa5'; name: string }
+  | { lib: 'mci'; name: string };
+
+const PLATFORM_ICONS: Record<string, PlatformIconConfig> = {
+  discord:  { lib: 'fa5', name: 'discord'          },
+  twitter:  { lib: 'fa5', name: 'twitter'           },
+  reddit:   { lib: 'fa5', name: 'reddit'            },
+  mastodon: { lib: 'fa5', name: 'mastodon'          },
+  youtube:  { lib: 'fa5', name: 'youtube'           },
+  bluesky:  { lib: 'mci', name: 'cloud-outline'     },
+  threads:  { lib: 'mci', name: 'at'                },
+  teams:    { lib: 'mci', name: 'microsoft-teams'   },
+};
 
 type Props = {
-  icon: string;
+  platformId: string;
   name: string;
   color: string;
   isConnected: boolean;
-  deletionCount?: number;   // Nombre de suppressions en cours
+  deletionCount?: number;
   onConnect: () => void;
-  onClean?: () => void;     // Lancer une suppression
+  onClean?: () => void;
 };
 
-export function NetworkCard({
-  icon,
-  name,
-  color,
-  isConnected,
-  deletionCount = 0,
-  onConnect,
-  onClean,
-}: Props) {
+export function NetworkCard({ platformId, name, color, isConnected, deletionCount = 0, onConnect, onClean }: Props) {
+  const iconConfig = PLATFORM_ICONS[platformId];
+
   return (
-    <View style={[styles.card, isConnected && styles.cardConnected]}>
-      {/* En-tête : icône + nom */}
-      <View style={styles.header}>
-        <View style={[styles.iconBox, { backgroundColor: color + '22' }]}>
-          <Text style={styles.icon}>{icon}</Text>
+    <View style={styles.card}>
+      <View style={styles.row}>
+        {/* Icône */}
+        <View style={[styles.iconBox, { backgroundColor: color + '15' }]}>
+          {iconConfig?.lib === 'fa5' ? (
+            <FontAwesome5 name={iconConfig.name as any} size={22} color={color} brand />
+          ) : iconConfig?.lib === 'mci' ? (
+            <MaterialCommunityIcons name={iconConfig.name as any} size={22} color={color} />
+          ) : null}
         </View>
-        <View style={styles.nameBlock}>
+
+        {/* Info */}
+        <View style={styles.info}>
           <Text style={styles.name}>{name}</Text>
-          <Text style={[styles.status, isConnected && styles.statusConnected]}>
+          <Text style={[styles.status, isConnected && { color: theme.accent.green }]}>
             {isConnected ? '● Connecté' : '○ Non connecté'}
           </Text>
         </View>
-      </View>
 
-      {/* Badge suppressions en cours */}
-      {isConnected && deletionCount > 0 && (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{deletionCount} en cours...</Text>
-        </View>
-      )}
-
-      {/* Actions */}
-      <View style={styles.actions}>
-        {isConnected ? (
-          <TouchableOpacity
-            style={[styles.btn, { backgroundColor: color }]}
-            onPress={onClean}
-          >
-            <Text style={styles.btnText}>🧹 Nettoyer</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={styles.btnOutline} onPress={onConnect}>
-            <Text style={[styles.btnOutlineText, { color }]}>Connecter →</Text>
-          </TouchableOpacity>
+        {/* Badge suppression */}
+        {isConnected && deletionCount > 0 && (
+          <View style={[styles.badge, { backgroundColor: theme.accent.amber + '20' }]}>
+            <Text style={[styles.badgeText, { color: theme.accent.amber }]}>{deletionCount}</Text>
+          </View>
         )}
       </View>
+
+      {/* Action */}
+      {isConnected ? (
+        <TouchableOpacity
+          style={[styles.cleanBtn, { backgroundColor: color }]}
+          onPress={onClean}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.cleanBtnText}>🧹 Nettoyer</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={[styles.connectBtn, { borderColor: color }]}
+          onPress={onConnect}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.connectBtnText, { color }]}>Se connecter</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#13131A',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#2A2A3A',
+    backgroundColor: theme.bg.surface,
+    borderRadius: theme.radius.lg,
+    padding: theme.space.md,
+    marginBottom: 10,
     gap: 12,
+    // Ombre Facebook card
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  cardConnected: {
-    borderColor: '#6C63FF44',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 48, height: 48, borderRadius: theme.radius.md,
+    alignItems: 'center', justifyContent: 'center',
   },
-  icon: { fontSize: 26 },
-  nameBlock: { flex: 1 },
-  name: {
-    color: '#F8F8FF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  status: {
-    color: '#5A5A70',
-    fontSize: 13,
-    marginTop: 2,
-  },
-  statusConnected: {
-    color: '#22C55E', // vert
-  },
+  info: { flex: 1 },
+  name: { color: theme.text.primary, fontSize: 15, fontWeight: '700' },
+  status: { color: theme.text.muted, fontSize: 12, marginTop: 2 },
   badge: {
-    backgroundColor: '#F59E0B22',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    alignSelf: 'flex-start',
+    borderRadius: theme.radius.full,
+    paddingHorizontal: 10, paddingVertical: 4,
   },
-  badgeText: {
-    color: '#F59E0B',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  btn: {
-    borderRadius: 10,
-    paddingHorizontal: 18,
+  badgeText: { fontSize: 12, fontWeight: '700' },
+  cleanBtn: {
+    borderRadius: theme.radius.full,
     paddingVertical: 10,
+    alignItems: 'center',
   },
-  btnText: {
-    color: '#FFF',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  btnOutline: {
-    borderRadius: 10,
-    paddingHorizontal: 18,
+  cleanBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
+  connectBtn: {
+    borderRadius: theme.radius.full,
     paddingVertical: 10,
+    alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#2A2A3A',
+    backgroundColor: '#FFF',
   },
-  btnOutlineText: {
-    fontWeight: '700',
-    fontSize: 14,
-  },
+  connectBtnText: { fontWeight: '700', fontSize: 14 },
 });

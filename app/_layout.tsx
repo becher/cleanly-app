@@ -7,11 +7,11 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { I18nManager } from 'react-native';
 import 'react-native-reanimated';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Init i18n (effet de bord — doit être importé tôt)
 import '../src/i18n';
 import i18n from '../src/i18n';
-import { initDatabase } from '../src/db/schema';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -32,7 +32,13 @@ export default function RootLayout() {
 
   useEffect(() => {
     // Initialiser SQLite (synchrone — pas de Promise)
-    try { initDatabase(); } catch (e) { console.error(e); }
+    try {
+      // Import dynamique pour éviter le crash sur Expo Go
+      const { initDatabase } = require('../src/db/schema');
+      initDatabase();
+    } catch (e) {
+      console.warn('[DB] expo-sqlite non disponible (Expo Go). Utilise un dev build.', e);
+    }
 
     // RTL automatique pour l'arabe
     const isRTL = i18n.language === 'ar';
@@ -50,9 +56,11 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-    </Stack>
+    <SafeAreaProvider>
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+      </Stack>
+    </SafeAreaProvider>
   );
 }

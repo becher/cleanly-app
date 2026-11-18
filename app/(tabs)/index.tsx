@@ -1,129 +1,184 @@
-// Dashboard principal de Cleanly
-// Affiche les réseaux connectés, stats et progressions en cours
-
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+// Dashboard — Clean Light theme (Facebook/Instagram style)
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 import { NetworkCard } from '../../src/components/NetworkCard';
 import { DeletionProgress } from '../../src/components/DeletionProgress';
 import { useAuthStore } from '../../src/store/authStore';
 import { useTaskStore } from '../../src/store/taskStore';
+import { theme, PLATFORM_COLORS } from '../../src/constants/theme';
 
 export default function DashboardScreen() {
   const { t } = useTranslation();
   const accounts = useAuthStore((s) => s.accounts);
   const activeTasks = useTaskStore((s) => s.activeTasks);
 
-  const connectedCount = accounts.length;
-  const inProgressCount = activeTasks.length;
-
   return (
-    <ScrollView style={styles.page}>
-      {/* Statistiques */}
+    <ScrollView style={styles.page} showsVerticalScrollIndicator={false}>
+
+      {/* Stats */}
       <View style={styles.statsRow}>
         <StatCard
+          icon="git-network-outline"
           label={t('dashboard.connectedNetworks')}
-          value={connectedCount}
-          color="#6C63FF"
+          value={accounts.length}
+          color={theme.accent.primary}
         />
         <StatCard
+          icon="trash-outline"
           label={t('dashboard.inProgress')}
-          value={inProgressCount}
-          color="#F59E0B"
+          value={activeTasks.length}
+          color={theme.accent.amber}
         />
       </View>
 
       {/* Progressions actives */}
       {activeTasks.length > 0 && (
-        <>
-          <Text style={styles.sectionLabel}>EN COURS</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>En cours</Text>
           {activeTasks.map((task) => (
             <DeletionProgress
               key={task.id}
               platform={task.platform}
-              platformIcon={PLATFORM_ICONS[task.platform] ?? '🌐'}
-              platformColor={PLATFORM_COLORS[task.platform] ?? '#6C63FF'}
+              platformIcon=""
+              platformColor={PLATFORM_COLORS[task.platform] ?? theme.accent.primary}
               processed={task.processed}
               total={task.total}
-              currentStatus={task.status === 'in_progress' ? 'Suppression en cours...' : undefined}
+              currentStatus="Suppression en cours..."
             />
           ))}
-        </>
-      )}
-
-      {/* Bienvenue si rien de connecté */}
-      {connectedCount === 0 && (
-        <View style={styles.welcomeBox}>
-          <Text style={styles.welcomeEmoji}>🧹</Text>
-          <Text style={styles.welcomeTitle}>{t('welcome.title')}</Text>
-          <Text style={styles.welcomeText}>{t('welcome.subtitle')}</Text>
         </View>
       )}
 
-      {/* Réseaux connectés */}
-      {connectedCount > 0 && (
-        <>
-          <Text style={styles.sectionLabel}>MES RÉSEAUX</Text>
+      {/* Vide — aucun compte */}
+      {accounts.length === 0 && (
+        <View style={styles.emptyCard}>
+          <View style={styles.emptyIconBox}>
+            <Text style={{ fontSize: 40 }}>🧹</Text>
+          </View>
+          <Text style={styles.emptyTitle}>{t('welcome.title')}</Text>
+          <Text style={styles.emptyText}>{t('welcome.subtitle')}</Text>
+          <TouchableOpacity style={styles.emptyBtn}>
+            <Text style={styles.emptyBtnText}>{t('welcome.cta')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Comptes connectés */}
+      {accounts.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Mes réseaux</Text>
           {accounts.map((account) => (
             <NetworkCard
               key={account.id}
-              icon={PLATFORM_ICONS[account.platform] ?? '🌐'}
-              name={account.displayName}
-              color={PLATFORM_COLORS[account.platform] ?? '#6C63FF'}
-              isConnected={true}
+              platformId={account.platform}
+              name={account.displayName ?? account.platform}
+              color={PLATFORM_COLORS[account.platform] ?? theme.accent.primary}
+              isConnected
               onConnect={() => {}}
-              onClean={() => {
-                // TODO : lancer la suppression via deletionQueue
-              }}
+              onClean={() => {}}
             />
           ))}
-        </>
+        </View>
       )}
     </ScrollView>
   );
 }
 
-// --- Utilitaires ---
-
-const PLATFORM_ICONS: Record<string, string> = {
-  discord: '🟣', twitter: '🐦', reddit: '🟠',
-  bluesky: '🦋', mastodon: '🐘', threads: '🧵',
-  youtube: '▶️', teams: '💜',
-};
-
-const PLATFORM_COLORS: Record<string, string> = {
-  discord: '#5865F2', twitter: '#000000', reddit: '#FF4500',
-  bluesky: '#0085FF', mastodon: '#6364FF', threads: '#000000',
-  youtube: '#FF0000', teams: '#6264A7',
-};
-
-// Composant : carte statistique
-function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
+function StatCard({
+  icon, label, value, color,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  label: string; value: number; color: string;
+}) {
   return (
-    <View style={[styles.statCard, { borderLeftColor: color }]}>
-      <Text style={[styles.statNumber, { color }]}>{value}</Text>
+    <View style={[styles.statCard, { borderTopColor: color, borderTopWidth: 3 }]}>
+      <Ionicons name={icon} size={20} color={color} />
+      <Text style={[styles.statNum, { color }]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: '#0A0A0F', padding: 16 },
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  page: { flex: 1, backgroundColor: theme.bg.base },
+
+  statsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    padding: theme.space.md,
+    paddingBottom: 0,
+  },
   statCard: {
-    flex: 1, backgroundColor: '#13131A', borderRadius: 12,
-    padding: 16, borderLeftWidth: 3,
+    flex: 1,
+    backgroundColor: theme.bg.surface,
+    borderRadius: theme.radius.lg,
+    padding: theme.space.md,
+    alignItems: 'flex-start',
+    gap: 4,
+    // Ombre légère (style Facebook card)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  statNumber: { fontSize: 36, fontWeight: '700' },
-  statLabel: { color: '#9B9BB0', fontSize: 13, marginTop: 4 },
-  sectionLabel: {
-    color: '#5A5A70', fontSize: 12, fontWeight: '600',
-    letterSpacing: 1.2, marginBottom: 12,
+  statNum: { fontSize: 32, fontWeight: '800', marginTop: 4 },
+  statLabel: { color: theme.text.secondary, fontSize: 12, fontWeight: '500' },
+
+  section: { padding: theme.space.md, paddingTop: theme.space.md },
+  sectionTitle: {
+    color: theme.text.primary,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 10,
   },
-  welcomeBox: {
-    backgroundColor: '#13131A', borderRadius: 16, padding: 24,
-    alignItems: 'center', marginBottom: 24, gap: 8,
+
+  // État vide — style card Facebook
+  emptyCard: {
+    backgroundColor: theme.bg.surface,
+    margin: theme.space.md,
+    borderRadius: theme.radius.xl,
+    padding: theme.space.xl,
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  welcomeEmoji: { fontSize: 48 },
-  welcomeTitle: { color: '#F8F8FF', fontSize: 20, fontWeight: '700' },
-  welcomeText: { color: '#9B9BB0', fontSize: 15, textAlign: 'center', lineHeight: 22 },
+  emptyIconBox: {
+    width: 72,
+    height: 72,
+    borderRadius: theme.radius.full,
+    backgroundColor: theme.bg.raised,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  emptyTitle: {
+    color: theme.text.primary,
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  emptyText: {
+    color: theme.text.secondary,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  emptyBtn: {
+    backgroundColor: theme.accent.primary,
+    borderRadius: theme.radius.full,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    marginTop: 8,
+  },
+  emptyBtnText: {
+    color: theme.text.onAccent,
+    fontWeight: '700',
+    fontSize: 15,
+  },
 });
