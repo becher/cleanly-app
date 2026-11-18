@@ -1,23 +1,41 @@
+// Store des tâches de suppression — queue SQLite
+// Expose les tâches actives pour le Dashboard
+
 import { create } from 'zustand';
-import { DeletionTask, Platform, DeletionStatus } from '../types';
+import { Platform } from '../types';
 import { db } from '../db/schema';
 
+// Type d'une tâche active pour l'UI
+export type ActiveTask = {
+  id: number;
+  platform: string;
+  accountId: string;
+  processed: number;    // Suppressions faites
+  total: number;        // Total à supprimer
+  status: 'pending' | 'in_progress' | 'done' | 'failed';
+};
+
 interface TaskState {
-  tasks: DeletionTask[];
-  activeCount: number;
-  enqueue: (platform: Platform, accountId: string, contentId: string, contentType: string) => void;
-  getStats: (platform: Platform) => { total: number; done: number; pending: number; error: number };
+  activeTasks: ActiveTask[];
+  enqueue: (
+    platform: Platform,
+    accountId: string,
+    contentId: string,
+    contentType: string
+  ) => void;
+  getStats: (
+    platform: Platform
+  ) => { total: number; done: number; pending: number; failed: number };
   refreshTasks: () => void;
 }
 
 export const useTaskStore = create<TaskState>((set, get) => ({
-  tasks: [],
-  activeCount: 0,
+  activeTasks: [],
 
   enqueue: (platform, accountId, contentId, contentType) => {
     db.runSync(
-      `INSERT OR IGNORE INTO deletion_queue 
-       (platform, account_id, content_id, content_type) 
+      `INSERT OR IGNORE INTO deletion_queue
+       (platform, account_id, content_id, content_type)
        VALUES (?, ?, ?, ?)`,
       [platform, accountId, contentId, contentType]
     );
@@ -25,27 +43,50 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   },
 
   getStats: (platform) => {
-    const rows = db.getAllSync<{ status: DeletionStatus; count: number }>(
-      `SELECT status, COUNT(*) as count FROM deletion_queue WHERE platform = ? GROUP BY status`,
+    const rows = db.getAllSync<{ status: string; count: number }>(
+      `SELECT status, COUNT(*) as count
+       FROM deletion_queue WHERE platform = ? GROUP BY status`,
       [platform]
     );
-    const stats = { total: 0, done: 0, pending: 0, error: 0 };
+    const stats = { total: 0, done: 0, pending: 0, failed: 0 };
     for (const row of rows) {
-      stats[row.status as keyof typeof stats] = row.count;
+      if (row.status in stats) {
+        stats[row.status as keyof typeof stats] = row.count;
+      }
       stats.total += row.count;
     }
     return stats;
   },
 
   refreshTasks: () => {
-    const tasks = db.getAllSync<DeletionTask>(
-      `SELECT * FROM deletion_queue WHERE status IN ('pending','processing') 
-       ORDER BY created_at DESC LIMIT 50`
+    // Lire les tâches actives depuis SQLite
+    const rows = db.getAllSync<{
+      platform: string;
+      account_id: string;
+      status: string;
+      pending: number;
+      done: number;
+    }>(
+      `SELECT
+         platform,
+         account_id,
+         status,
+         SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done,
+         COUNT(*) as pending
+       FROM deletion_queue
+       WHERE status IN ('pending', 'in_progress')
+       GROUP BY platform, account_id`
     );
-    const activeCount = db.getFirstSync<{ count: number }>(
-      `SELECT COUNT(*) as count FROM deletion_queue WHERE status = 'processing'`
-    )?.count ?? 0;
-    set({ tasks, activeCount });
+
+    const activeTasks: ActiveTask[] = rows.map((row, i) => ({
+      id: i,
+      platform: row.platform,
+      accountId: row.account_id,
+      processed: row.done ?? 0,
+      total: (row.pending ?? 0) + (row.done ?? 0),
+      status: row.status as ActiveTask['status'],
+    }));
+
+    set({ activeTasks });
   },
 }));
-

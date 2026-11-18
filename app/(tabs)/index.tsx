@@ -1,88 +1,103 @@
 // Dashboard principal de Cleanly
-// Affiche les réseaux connectés et les statistiques
+// Affiche les réseaux connectés, stats et progressions en cours
 
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-
-// Liste des réseaux supportés (Phase 1)
-const NETWORKS = [
-  { id: 'discord',  name: 'Discord',          icon: '🟣', color: '#5865F2' },
-  { id: 'twitter',  name: 'X / Twitter',       icon: '🐦', color: '#000000' },
-  { id: 'reddit',   name: 'Reddit',            icon: '🟠', color: '#FF4500' },
-  { id: 'bluesky',  name: 'Bluesky',           icon: '🦋', color: '#0085FF' },
-  { id: 'mastodon', name: 'Mastodon',          icon: '🐘', color: '#6364FF' },
-  { id: 'threads',  name: 'Threads',           icon: '🧵', color: '#000000' },
-  { id: 'youtube',  name: 'YouTube',           icon: '▶️', color: '#FF0000' },
-  { id: 'teams',    name: 'Microsoft Teams',   icon: '💜', color: '#6264A7' },
-];
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { NetworkCard } from '../../src/components/NetworkCard';
+import { DeletionProgress } from '../../src/components/DeletionProgress';
+import { useAuthStore } from '../../src/store/authStore';
+import { useTaskStore } from '../../src/store/taskStore';
 
 export default function DashboardScreen() {
-  // Pour l'instant : aucun compte connecté (sera géré par authStore)
-  const connectedNetworks = 0;
-  const deletionsInProgress = 0;
+  const { t } = useTranslation();
+  const accounts = useAuthStore((s) => s.accounts);
+  const activeTasks = useTaskStore((s) => s.activeTasks);
+
+  const connectedCount = accounts.length;
+  const inProgressCount = activeTasks.length;
 
   return (
     <ScrollView style={styles.page}>
-      {/* En-tête statistiques */}
+      {/* Statistiques */}
       <View style={styles.statsRow}>
         <StatCard
-          label="Réseaux connectés"
-          value={connectedNetworks}
+          label={t('dashboard.connectedNetworks')}
+          value={connectedCount}
           color="#6C63FF"
         />
         <StatCard
-          label="En cours"
-          value={deletionsInProgress}
+          label={t('dashboard.inProgress')}
+          value={inProgressCount}
           color="#F59E0B"
         />
       </View>
 
-      {/* Message de bienvenue si rien de connecté */}
-      {connectedNetworks === 0 && (
+      {/* Progressions actives */}
+      {activeTasks.length > 0 && (
+        <>
+          <Text style={styles.sectionLabel}>EN COURS</Text>
+          {activeTasks.map((task) => (
+            <DeletionProgress
+              key={task.id}
+              platform={task.platform}
+              platformIcon={PLATFORM_ICONS[task.platform] ?? '🌐'}
+              platformColor={PLATFORM_COLORS[task.platform] ?? '#6C63FF'}
+              processed={task.processed}
+              total={task.total}
+              currentStatus={task.status === 'in_progress' ? 'Suppression en cours...' : undefined}
+            />
+          ))}
+        </>
+      )}
+
+      {/* Bienvenue si rien de connecté */}
+      {connectedCount === 0 && (
         <View style={styles.welcomeBox}>
           <Text style={styles.welcomeEmoji}>🧹</Text>
-          <Text style={styles.welcomeTitle}>Bienvenue sur Cleanly !</Text>
-          <Text style={styles.welcomeText}>
-            Connectez un réseau social pour supprimer vos anciens posts automatiquement.
-          </Text>
-          <TouchableOpacity style={styles.connectButton}>
-            <Text style={styles.connectButtonText}>Connecter un réseau →</Text>
-          </TouchableOpacity>
+          <Text style={styles.welcomeTitle}>{t('welcome.title')}</Text>
+          <Text style={styles.welcomeText}>{t('welcome.subtitle')}</Text>
         </View>
       )}
 
-      {/* Liste des réseaux disponibles */}
-      <Text style={styles.sectionLabel}>RÉSEAUX DISPONIBLES</Text>
-      {NETWORKS.map((network) => (
-        <TouchableOpacity key={network.id} style={styles.networkRow}>
-          {/* Icône */}
-          <Text style={styles.networkIcon}>{network.icon}</Text>
-
-          {/* Nom du réseau */}
-          <View style={styles.networkInfo}>
-            <Text style={styles.networkName}>{network.name}</Text>
-            <Text style={styles.networkStatus}>Non connecté</Text>
-          </View>
-
-          {/* Bouton de connexion */}
-          <View style={[styles.connectBadge, { backgroundColor: network.color }]}>
-            <Text style={styles.connectBadgeText}>Connecter</Text>
-          </View>
-        </TouchableOpacity>
-      ))}
+      {/* Réseaux connectés */}
+      {connectedCount > 0 && (
+        <>
+          <Text style={styles.sectionLabel}>MES RÉSEAUX</Text>
+          {accounts.map((account) => (
+            <NetworkCard
+              key={account.id}
+              icon={PLATFORM_ICONS[account.platform] ?? '🌐'}
+              name={account.displayName}
+              color={PLATFORM_COLORS[account.platform] ?? '#6C63FF'}
+              isConnected={true}
+              onConnect={() => {}}
+              onClean={() => {
+                // TODO : lancer la suppression via deletionQueue
+              }}
+            />
+          ))}
+        </>
+      )}
     </ScrollView>
   );
 }
 
+// --- Utilitaires ---
+
+const PLATFORM_ICONS: Record<string, string> = {
+  discord: '🟣', twitter: '🐦', reddit: '🟠',
+  bluesky: '🦋', mastodon: '🐘', threads: '🧵',
+  youtube: '▶️', teams: '💜',
+};
+
+const PLATFORM_COLORS: Record<string, string> = {
+  discord: '#5865F2', twitter: '#000000', reddit: '#FF4500',
+  bluesky: '#0085FF', mastodon: '#6364FF', threads: '#000000',
+  youtube: '#FF0000', teams: '#6264A7',
+};
+
 // Composant : carte statistique
-function StatCard({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: string;
-}) {
+function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <View style={[styles.statCard, { borderLeftColor: color }]}>
       <Text style={[styles.statNumber, { color }]}>{value}</Text>
@@ -91,113 +106,24 @@ function StatCard({
   );
 }
 
-// Styles
 const styles = StyleSheet.create({
-  // Page principale (fond noir)
-  page: {
-    flex: 1,
-    backgroundColor: '#0A0A0F',
-    padding: 16,
-  },
-
-  // Ligne de statistiques
-  statsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
+  page: { flex: 1, backgroundColor: '#0A0A0F', padding: 16 },
+  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   statCard: {
-    flex: 1,
-    backgroundColor: '#13131A',
-    borderRadius: 12,
-    padding: 16,
-    borderLeftWidth: 3,
+    flex: 1, backgroundColor: '#13131A', borderRadius: 12,
+    padding: 16, borderLeftWidth: 3,
   },
-  statNumber: {
-    fontSize: 36,
-    fontWeight: '700',
+  statNumber: { fontSize: 36, fontWeight: '700' },
+  statLabel: { color: '#9B9BB0', fontSize: 13, marginTop: 4 },
+  sectionLabel: {
+    color: '#5A5A70', fontSize: 12, fontWeight: '600',
+    letterSpacing: 1.2, marginBottom: 12,
   },
-  statLabel: {
-    color: '#9B9BB0',
-    fontSize: 13,
-    marginTop: 4,
-  },
-
-  // Boite de bienvenue
   welcomeBox: {
-    backgroundColor: '#13131A',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 24,
-    gap: 8,
+    backgroundColor: '#13131A', borderRadius: 16, padding: 24,
+    alignItems: 'center', marginBottom: 24, gap: 8,
   },
   welcomeEmoji: { fontSize: 48 },
-  welcomeTitle: {
-    color: '#F8F8FF',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  welcomeText: {
-    color: '#9B9BB0',
-    fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  connectButton: {
-    backgroundColor: '#6C63FF',
-    borderRadius: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    marginTop: 8,
-  },
-  connectButtonText: {
-    color: '#FFF',
-    fontWeight: '700',
-    fontSize: 15,
-  },
-
-  // Label de section
-  sectionLabel: {
-    color: '#5A5A70',
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 1.2,
-    marginBottom: 12,
-  },
-
-  // Ligne réseau
-  networkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#13131A',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#2A2A3A',
-    gap: 12,
-  },
-  networkIcon: { fontSize: 28 },
-  networkInfo: { flex: 1 },
-  networkName: {
-    color: '#F8F8FF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  networkStatus: {
-    color: '#5A5A70',
-    fontSize: 13,
-    marginTop: 2,
-  },
-  connectBadge: {
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  connectBadgeText: {
-    color: '#FFF',
-    fontSize: 13,
-    fontWeight: '600',
-  },
+  welcomeTitle: { color: '#F8F8FF', fontSize: 20, fontWeight: '700' },
+  welcomeText: { color: '#9B9BB0', fontSize: 15, textAlign: 'center', lineHeight: 22 },
 });
