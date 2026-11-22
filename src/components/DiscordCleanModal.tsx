@@ -145,6 +145,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
   // Messages trouvés & Sélection individuelle
   const [scannedMessages, setScannedMessages] = useState<DiscordMessage[]>([]);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
+  const [isBackupEnabled, setIsBackupEnabled] = useState(true);
 
   // Exécution de la suppression
   const [deletedCount, setDeletedCount] = useState(0);
@@ -528,15 +529,15 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
       return;
     }
 
+    const backupNotice = isBackupEnabled
+      ? 'Une copie de sauvegarde sera enregistrée dans vos archives Cleanly.'
+      : 'Attention : la sauvegarde est désactivée.';
+
     Alert.alert(
       '⚠️ Confirmer la suppression',
-      `Vous allez supprimer définitivement ${selectedMessageIds.size} message(s). Cette action est irréversible. Souhaitez-vous exporter une sauvegarde avant ?`,
+      `Êtes-vous sûr de vouloir supprimer définitivement ${selectedMessageIds.size} message(s) ? ${backupNotice}`,
       [
         { text: 'Annuler', style: 'cancel' },
-        {
-          text: '💾 Sauvegarder d\'abord',
-          onPress: handleOpenBackupPrompt,
-        },
         {
           text: 'Supprimer',
           style: 'destructive',
@@ -567,7 +568,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
         deletedCount: deleted,
         totalTargeted: total,
         status: isInterrupted ? 'interrupted' : 'completed',
-        hasBackup: messagesToDelete.length > 0,
+        hasBackup: isBackupEnabled && messagesToDelete.length > 0,
         filters: {
           keyword: filterKeyword.trim() || undefined,
           dateFilterTitle: dateOpt?.title,
@@ -578,8 +579,8 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
         },
       });
 
-      // Sauvegarde locale chiffrée
-      if (newRecord && newRecord.id && messagesToDelete.length > 0) {
+      // Sauvegarde locale chiffrée si activée par la checkbox
+      if (isBackupEnabled && newRecord && newRecord.id && messagesToDelete.length > 0) {
         await saveBackupLocally(newRecord.id, messagesToDelete);
       }
     } catch (e) {
@@ -1303,27 +1304,32 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                   </TouchableOpacity>
                 </View>
 
-                {/* Barre d'action rapide : Sauvegarde de précaution avant suppression */}
-                <View style={styles.backupActionBar}>
-                  <View style={{ flex: 1, marginRight: 10 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Ionicons name="shield-checkmark" size={13} color="#10B981" style={{ marginRight: 4 }} />
-                      <Text style={styles.backupActionTitle}>Sauvegarde de précaution</Text>
-                    </View>
-                    <Text style={styles.backupActionSub} numberOfLines={1}>
-                      Exportez vos {selectedMessageIds.size} message(s) (TXT ou JSON)
+                {/* Case à cocher : Sauvegarder les messages avant suppression (Backup) */}
+                <TouchableOpacity
+                  style={[styles.backupCheckboxBar, isBackupEnabled && styles.backupCheckboxBarActive]}
+                  onPress={() => setIsBackupEnabled(!isBackupEnabled)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name={isBackupEnabled ? 'checkbox' : 'square-outline'}
+                    size={22}
+                    color={isBackupEnabled ? '#5865F2' : theme.text.muted}
+                    style={{ marginRight: 10 }}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.backupCheckboxTitle, isBackupEnabled && styles.backupCheckboxTitleActive]}>
+                      Sauvegarder les messages (Backup)
+                    </Text>
+                    <Text style={styles.backupCheckboxSub} numberOfLines={1}>
+                      Archiver dans Cleanly pour relire ou exporter plus tard
                     </Text>
                   </View>
-                  <TouchableOpacity
-                    style={[styles.backupActionBtn, selectedMessageIds.size === 0 && { opacity: 0.5 }]}
-                    onPress={handleOpenBackupPrompt}
-                    activeOpacity={0.8}
-                    disabled={selectedMessageIds.size === 0}
-                  >
-                    <Ionicons name="download-outline" size={15} color="#5865F2" style={{ marginRight: 5 }} />
-                    <Text style={styles.backupActionBtnText}>Sauvegarder</Text>
-                  </TouchableOpacity>
-                </View>
+                  {isBackupEnabled && (
+                    <View style={styles.backupActiveBadge}>
+                      <Text style={styles.backupActiveBadgeText}>ARCHIVE ACTIVE</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
 
                 <ScrollView style={styles.pageContent} showsVerticalScrollIndicator={false}>
                   {scannedMessages.map((msg) => {
@@ -2666,39 +2672,45 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  backupActionBar: {
+  backupCheckboxBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: '#FFF',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.border.subtle,
   },
-  backupActionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
+  backupCheckboxBarActive: {
+    backgroundColor: '#5865F208',
+  },
+  backupCheckboxTitle: {
+    fontSize: 13,
+    fontWeight: '600',
     color: theme.text.primary,
   },
-  backupActionSub: {
+  backupCheckboxTitleActive: {
+    color: '#5865F2',
+    fontWeight: '700',
+  },
+  backupCheckboxSub: {
     fontSize: 11,
     color: theme.text.muted,
-    marginTop: 1,
+    marginTop: 2,
   },
-  backupActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#5865F215',
-    borderWidth: 1,
-    borderColor: '#5865F230',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  backupActiveBadge: {
+    backgroundColor: '#5865F218',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: theme.radius.full,
+    borderWidth: 1,
+    borderColor: '#5865F240',
+    marginLeft: 8,
   },
-  backupActionBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
+  backupActiveBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
     color: '#5865F2',
+    letterSpacing: 0.5,
   },
 });
