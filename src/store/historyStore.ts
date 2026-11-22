@@ -53,6 +53,7 @@ export interface HistoryRecord {
   totalTargeted: number;
   status: 'completed' | 'interrupted' | 'failed';
   timestamp: number;
+  hasBackup?: boolean;
   filters?: {
     keyword?: string;
     dateFilterTitle?: string;

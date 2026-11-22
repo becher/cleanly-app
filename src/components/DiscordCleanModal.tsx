@@ -22,6 +22,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { theme } from '../constants/theme';
 import { useHistoryStore } from '../store/historyStore';
+import { shareMessagesBackup, saveBackupLocally } from '../utils/backupService';
 import {
   getDiscordGuilds,
   getDiscordChannels,
@@ -488,6 +489,38 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     }
   };
 
+  // Ouvrir le dialogue de sauvegarde des messages sélectionnés
+  const handleOpenBackupPrompt = () => {
+    const messagesToBackup = scannedMessages.filter((m) => selectedMessageIds.has(m.id));
+    if (messagesToBackup.length === 0) {
+      Alert.alert('Attention', 'Veuillez sélectionner au moins un message à sauvegarder.');
+      return;
+    }
+
+    const targetName =
+      selectedGuild?.id === 'all_guilds'
+        ? `Tous les serveurs (${guilds.length} serveurs)`
+        : selectedGuild?.id === 'dms'
+        ? 'Messages Privés (DMs)'
+        : `${selectedGuild?.name ?? 'Discord'} (${selectedChannelIds.size} salons)`;
+
+    Alert.alert(
+      '💾 Sauvegarder les messages',
+      `Choisissez le format d'export pour vos ${messagesToBackup.length} message(s) :`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: '📄 Fichier Texte (.TXT)',
+          onPress: () => shareMessagesBackup(messagesToBackup, targetName, 'txt'),
+        },
+        {
+          text: '📊 Données complètes (.JSON)',
+          onPress: () => shareMessagesBackup(messagesToBackup, targetName, 'json'),
+        },
+      ]
+    );
+  };
+
   // 4. Lancer la suppression
   const handleConfirmDeletion = () => {
     if (selectedMessageIds.size === 0) {
@@ -497,10 +530,18 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
 
     Alert.alert(
       '⚠️ Confirmer la suppression',
-      `Êtes-vous sûr de vouloir supprimer définitivement ${selectedMessageIds.size} message(s) ? Cette action est irréversible.`,
+      `Vous allez supprimer définitivement ${selectedMessageIds.size} message(s). Cette action est irréversible. Souhaitez-vous exporter une sauvegarde avant ?`,
       [
         { text: 'Annuler', style: 'cancel' },
-        { text: 'Supprimer', style: 'destructive', onPress: executeDeletion },
+        {
+          text: '💾 Sauvegarder d\'abord',
+          onPress: handleOpenBackupPrompt,
+        },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: executeDeletion,
+        },
       ]
     );
   };
@@ -518,12 +559,15 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
       const dateOpt = DATE_FILTER_OPTIONS.find((o) => o.days === filterDays);
       const speedOpt = SPEED_OPTIONS.find((o) => o.ms === speedDelayMs);
 
-      await useHistoryStore.getState().addRecord({
+      const messagesToDelete = scannedMessages.filter((m) => selectedMessageIds.has(m.id));
+
+      const newRecord = await useHistoryStore.getState().addRecord({
         platform: 'discord',
         targetName,
         deletedCount: deleted,
         totalTargeted: total,
         status: isInterrupted ? 'interrupted' : 'completed',
+        hasBackup: messagesToDelete.length > 0,
         filters: {
           keyword: filterKeyword.trim() || undefined,
           dateFilterTitle: dateOpt?.title,
@@ -533,6 +577,11 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
           speedTitle: speedOpt?.title,
         },
       });
+
+      // Sauvegarde locale chiffrée
+      if (newRecord && newRecord.id && messagesToDelete.length > 0) {
+        await saveBackupLocally(newRecord.id, messagesToDelete);
+      }
     } catch (e) {
       console.warn('[DiscordCleanModal] Erreur enregistrement historique:', e);
     }
@@ -1254,6 +1303,28 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                   </TouchableOpacity>
                 </View>
 
+                {/* Barre d'action rapide : Sauvegarde de précaution avant suppression */}
+                <View style={styles.backupActionBar}>
+                  <View style={{ flex: 1, marginRight: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Ionicons name="shield-checkmark" size={13} color="#10B981" style={{ marginRight: 4 }} />
+                      <Text style={styles.backupActionTitle}>Sauvegarde de précaution</Text>
+                    </View>
+                    <Text style={styles.backupActionSub} numberOfLines={1}>
+                      Exportez vos {selectedMessageIds.size} message(s) (TXT ou JSON)
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.backupActionBtn, selectedMessageIds.size === 0 && { opacity: 0.5 }]}
+                    onPress={handleOpenBackupPrompt}
+                    activeOpacity={0.8}
+                    disabled={selectedMessageIds.size === 0}
+                  >
+                    <Ionicons name="download-outline" size={15} color="#5865F2" style={{ marginRight: 5 }} />
+                    <Text style={styles.backupActionBtnText}>Sauvegarder</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <ScrollView style={styles.pageContent} showsVerticalScrollIndicator={false}>
                   {scannedMessages.map((msg) => {
                     const isChecked = selectedMessageIds.has(msg.id);
@@ -1626,6 +1697,19 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                       </Text>
                     </View>
                   </View>
+
+                  {/* Bouton d'export de la sauvegarde post-suppression */}
+                  <TouchableOpacity
+                    style={styles.completeBackupBtn}
+                    onPress={handleOpenBackupPrompt}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="download-outline" size={17} color="#5865F2" style={{ marginRight: 8 }} />
+                    <Text style={styles.completeBackupBtnText}>
+                      Exporter la sauvegarde ({deletedCount} messages)
+                    </Text>
+                  </TouchableOpacity>
+
                   <View style={{ height: 16 }} />
                 </ScrollView>
 
@@ -2563,5 +2647,58 @@ const styles = StyleSheet.create({
     color: '#5865F2',
     fontSize: 14,
     fontWeight: '700',
+  },
+  completeBackupBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#5865F212',
+    borderWidth: 1,
+    borderColor: '#5865F230',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: theme.radius.md,
+    width: '100%',
+    marginBottom: 8,
+  },
+  completeBackupBtnText: {
+    color: '#5865F2',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  backupActionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFF',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border.subtle,
+  },
+  backupActionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.text.primary,
+  },
+  backupActionSub: {
+    fontSize: 11,
+    color: theme.text.muted,
+    marginTop: 1,
+  },
+  backupActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#5865F215',
+    borderWidth: 1,
+    borderColor: '#5865F230',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: theme.radius.full,
+  },
+  backupActionBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#5865F2',
   },
 });

@@ -15,6 +15,7 @@ import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { theme, PLATFORM_COLORS } from '../constants/theme';
 import { useHistoryStore, HistoryRecord } from '../store/historyStore';
+import { loadLocalBackup, shareMessagesBackup } from '../utils/backupService';
 import type { Platform } from '../types';
 
 function formatRelativeDate(timestamp: number): string {
@@ -205,6 +206,30 @@ function HistoryCard({
   const pColor = PLATFORM_COLORS[record.platform] ?? theme.accent.primary;
   const isCompleted = record.status === 'completed';
 
+  const handleExportBackup = async () => {
+    const msgs = await loadLocalBackup(record.id);
+    if (!msgs || msgs.length === 0) {
+      Alert.alert('Information', 'Cette session ne contient pas de copie de sauvegarde disponible.');
+      return;
+    }
+
+    Alert.alert(
+      '💾 Exporter la sauvegarde',
+      `Session : ${record.targetName} (${msgs.length} messages sauvegardés)`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: '📄 Fichier Texte (.TXT)',
+          onPress: () => shareMessagesBackup(msgs, record.targetName, 'txt'),
+        },
+        {
+          text: '📊 Données (.JSON)',
+          onPress: () => shareMessagesBackup(msgs, record.targetName, 'json'),
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.card}>
       {/* Ligne haute : Icône plateforme + Cible + Date + Bouton delete */}
@@ -308,6 +333,18 @@ function HistoryCard({
             </View>
           )}
         </View>
+      )}
+
+      {/* Bouton de téléchargement de backup si disponible */}
+      {record.hasBackup && (
+        <TouchableOpacity
+          style={styles.backupDownloadRow}
+          onPress={handleExportBackup}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="download-outline" size={14} color="#5865F2" style={{ marginRight: 6 }} />
+          <Text style={styles.backupDownloadText}>Sauvegarde disponible • Exporter (.TXT / .JSON)</Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -534,5 +571,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: theme.text.secondary,
     fontWeight: '500',
+  },
+  backupDownloadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#5865F20D',
+    borderTopWidth: 1,
+    borderTopColor: '#5865F220',
+    marginTop: 10,
+    paddingTop: 8,
+    paddingHorizontal: 2,
+  },
+  backupDownloadText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#5865F2',
   },
 });
