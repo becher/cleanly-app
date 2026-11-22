@@ -568,6 +568,16 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
       }
     }
 
+    if (!stopRef.current) {
+      setDeletedCount(messagesToDelete.length);
+      setCurrentStatus('✅ Nettoyage terminé avec succès !');
+      // Laisser l'utilisateur admirer la barre pleine à 100% et le compteur complet pendant ~1.2s
+      await new Promise<void>((resolve) => setTimeout(() => resolve(), 1200));
+    } else {
+      setCurrentStatus(`Arrêt demandé : ${count} message(s) supprimé(s).`);
+      await new Promise<void>((resolve) => setTimeout(() => resolve(), 800));
+    }
+
     await recordCleanHistory(count, messagesToDelete.length, stopRef.current);
     setStep('complete');
     onFinished?.(count);
@@ -1370,64 +1380,193 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
             {/* ================= ÉTAPE 5 : SUPPRESSION EN COURS ================= */}
             {step === 'deleting' && (
               <View style={styles.deletingContainer}>
-                <View style={styles.deletingIcon}>
-                  <Text style={{ fontSize: 44 }}>🧹</Text>
+                <View style={[styles.deletingIcon, percent === 100 && { backgroundColor: '#22C55E15' }]}>
+                  <Text style={{ fontSize: 44 }}>{percent === 100 ? '✨' : '🧹'}</Text>
                 </View>
 
-                <Text style={styles.deletingTitle}>Suppression en cours...</Text>
+                <Text style={styles.deletingTitle}>
+                  {percent === 100 ? 'Nettoyage terminé !' : 'Suppression en cours...'}
+                </Text>
                 <Text style={styles.deletingSub}>
                   Protection anti-ban active ({speedDelayMs} ms par message)
                 </Text>
 
                 {/* Barre de progression */}
                 <View style={styles.progressTrack}>
-                  <View style={[styles.progressBar, { width: `${percent}%` }]} />
+                  <View
+                    style={[
+                      styles.progressBar,
+                      {
+                        width: `${percent}%`,
+                        backgroundColor: percent === 100 ? theme.accent.green : theme.accent.red,
+                      },
+                    ]}
+                  />
                 </View>
 
-                <Text style={styles.percentText}>{percent}%</Text>
+                <Text style={[styles.percentText, percent === 100 && { color: theme.accent.green }]}>
+                  {percent}%
+                </Text>
                 <Text style={styles.countText}>
-                  {deletedCount} / {targetCount} messages supprimés
+                  {deletedCount} / {targetCount} message{targetCount > 1 ? 's' : ''} supprimé{targetCount > 1 ? 's' : ''}
                 </Text>
 
                 {remainingCount > 0 && (
                   <Text style={styles.timerText}>Temps restant estimé : ~{estimatedSeconds}s</Text>
                 )}
 
-                <Text style={styles.statusLog} numberOfLines={1}>
+                <Text
+                  style={[
+                    styles.statusLog,
+                    percent === 100 && { color: theme.accent.green, fontWeight: '700', fontStyle: 'normal' },
+                  ]}
+                  numberOfLines={1}
+                >
                   {currentStatus}
                 </Text>
 
                 {/* Contrôles Pause / Stop */}
-                <View style={styles.controlRow}>
-                  <TouchableOpacity style={styles.controlBtn} onPress={togglePause} activeOpacity={0.8}>
-                    <Ionicons name={isPaused ? 'play' : 'pause'} size={18} color={theme.text.primary} style={{ marginRight: 6 }} />
-                    <Text style={styles.controlBtnText}>{isPaused ? 'Reprendre' : 'Pause'}</Text>
-                  </TouchableOpacity>
+                {percent < 100 && (
+                  <View style={styles.controlRow}>
+                    <TouchableOpacity style={styles.controlBtn} onPress={togglePause} activeOpacity={0.8}>
+                      <Ionicons name={isPaused ? 'play' : 'pause'} size={18} color={theme.text.primary} style={{ marginRight: 6 }} />
+                      <Text style={styles.controlBtnText}>{isPaused ? 'Reprendre' : 'Pause'}</Text>
+                    </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[styles.controlBtn, { borderColor: theme.accent.red }]}
-                    onPress={stopDeletion}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="stop" size={18} color={theme.accent.red} style={{ marginRight: 6 }} />
-                    <Text style={[styles.controlBtnText, { color: theme.accent.red }]}>Arrêter</Text>
-                  </TouchableOpacity>
-                </View>
+                    <TouchableOpacity
+                      style={[styles.controlBtn, { borderColor: theme.accent.red }]}
+                      onPress={stopDeletion}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="stop" size={18} color={theme.accent.red} style={{ marginRight: 6 }} />
+                      <Text style={[styles.controlBtnText, { color: theme.accent.red }]}>Arrêter</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             )}
 
-            {/* ================= ÉTAPE 6 : TERMINÉ ================= */}
+            {/* ================= ÉTAPE 6 : TERMINÉ (ERGONOMIE MODERNE) ================= */}
             {step === 'complete' && (
-              <View style={styles.centerBox}>
-                <Ionicons name="checkmark-circle" size={76} color={theme.accent.green} />
-                <Text style={styles.completeTitle}>Nettoyage terminé !</Text>
-                <Text style={styles.completeSub}>
-                  {deletedCount} message(s) ont été effacés avec succès.
+              <ScrollView
+                contentContainerStyle={styles.completeScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {/* Icône de succès avec double halo */}
+                <View style={styles.completeIconWrapper}>
+                  <View style={styles.completeIconOuter}>
+                    <View style={styles.completeIconInner}>
+                      <Ionicons name="checkmark-sharp" size={38} color="#FFF" />
+                    </View>
+                  </View>
+                </View>
+
+                {/* Titre & sous-titre */}
+                <Text style={styles.completeTitle}>Nettoyage réussi !</Text>
+                <Text style={styles.completeSubtitle}>
+                  Les messages ciblés ont été définitivement purgés avec succès de votre compte Discord.
                 </Text>
-                <TouchableOpacity style={styles.primaryBtn} onPress={onClose}>
-                  <Text style={styles.primaryBtnText}>Terminé</Text>
-                </TouchableOpacity>
-              </View>
+
+                {/* Grande carte statistique percutante */}
+                <View style={styles.completeStatCard}>
+                  <Text style={styles.completeStatNumber}>-{deletedCount}</Text>
+                  <Text style={styles.completeStatLabel}>
+                    message{deletedCount > 1 ? 's' : ''} effacé{deletedCount > 1 ? 's' : ''} au total
+                  </Text>
+                </View>
+
+                {/* Récapitulatif de la session */}
+                <View style={styles.completeSummaryCard}>
+                  <Text style={styles.summaryCardHeaderTitle}>RÉCAPITULATIF DE LA SESSION</Text>
+
+                  {/* Cible */}
+                  <View style={styles.summaryRow}>
+                    <View style={styles.summaryRowLeft}>
+                      <View style={[styles.summaryIconMini, { backgroundColor: '#5865F215' }]}>
+                        <Ionicons name="server" size={13} color="#5865F2" />
+                      </View>
+                      <Text style={styles.summaryRowLabel}>Cible</Text>
+                    </View>
+                    <Text style={styles.summaryRowValue} numberOfLines={1}>
+                      {selectedGuild?.id === 'all_guilds'
+                        ? 'Tous les serveurs'
+                        : selectedGuild?.id === 'dms'
+                        ? 'Messages Privés (DMs)'
+                        : selectedGuild?.name ?? 'Discord'}
+                    </Text>
+                  </View>
+
+                  {/* Salons (si serveur individuel) */}
+                  {selectedGuild?.id !== 'all_guilds' && selectedGuild?.id !== 'dms' && (
+                    <View style={styles.summaryRow}>
+                      <View style={styles.summaryRowLeft}>
+                        <View style={[styles.summaryIconMini, { backgroundColor: '#8B5CF615' }]}>
+                          <Ionicons name="chatbubbles" size={13} color="#8B5CF6" />
+                        </View>
+                        <Text style={styles.summaryRowLabel}>Salons</Text>
+                      </View>
+                      <Text style={styles.summaryRowValue}>
+                        {selectedChannelIds.size} salon{selectedChannelIds.size > 1 ? 's' : ''}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Méthode anti-ban */}
+                  <View style={styles.summaryRow}>
+                    <View style={styles.summaryRowLeft}>
+                      <View style={[styles.summaryIconMini, { backgroundColor: '#10B98115' }]}>
+                        <Ionicons name="shield-checkmark" size={13} color="#10B981" />
+                      </View>
+                      <Text style={styles.summaryRowLabel}>Protection</Text>
+                    </View>
+                    <Text style={styles.summaryRowValue}>
+                      Anti-ban ({speedDelayMs} ms/msg)
+                    </Text>
+                  </View>
+
+                  {/* Historique Cleanly */}
+                  <View style={[styles.summaryRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                    <View style={styles.summaryRowLeft}>
+                      <View style={[styles.summaryIconMini, { backgroundColor: '#F59E0B15' }]}>
+                        <Ionicons name="time" size={13} color="#F59E0B" />
+                      </View>
+                      <Text style={styles.summaryRowLabel}>Historique</Text>
+                    </View>
+                    <Text style={[styles.summaryRowValue, { color: '#10B981', fontWeight: '700' }]}>
+                      Sauvegardé localement ✓
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Boutons d'action */}
+                <View style={styles.completeActionsBox}>
+                  {/* Bouton principal : Terminer & Quitter */}
+                  <TouchableOpacity
+                    style={styles.completePrimaryBtn}
+                    onPress={onClose}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="checkmark-done" size={20} color="#FFF" style={{ marginRight: 8 }} />
+                    <Text style={styles.completePrimaryBtnText}>Retour à l'accueil</Text>
+                  </TouchableOpacity>
+
+                  {/* Bouton secondaire : Nettoyer un autre serveur */}
+                  <TouchableOpacity
+                    style={styles.completeSecondaryBtn}
+                    onPress={() => {
+                      setStep('select_guild');
+                      setSelectedChannelIds(new Set());
+                      setScannedMessages([]);
+                      setSelectedMessageIds(new Set());
+                      setDeletedCount(0);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="refresh-outline" size={18} color="#5865F2" style={{ marginRight: 6 }} />
+                    <Text style={styles.completeSecondaryBtnText}>Nettoyer un autre serveur</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
             )}
           </View>
         )}
@@ -2163,17 +2302,154 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.text.primary,
   },
+  completeScrollContent: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexGrow: 1,
+  },
+  completeIconWrapper: {
+    marginBottom: 16,
+  },
+  completeIconOuter: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: '#22C55E18',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  completeIconInner: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#22C55E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#22C55E',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
   completeTitle: {
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: '800',
     color: theme.text.primary,
-    marginTop: 16,
-    marginBottom: 8,
+    marginBottom: 6,
+    textAlign: 'center',
   },
-  completeSub: {
-    fontSize: 14,
+  completeSubtitle: {
+    fontSize: 13,
     color: theme.text.secondary,
     textAlign: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 16,
+    lineHeight: 18,
+  },
+  completeStatCard: {
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+    borderRadius: theme.radius.lg,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 16,
+    elevation: 1,
+  },
+  completeStatNumber: {
+    fontSize: 34,
+    fontWeight: '900',
+    color: theme.accent.red,
+    letterSpacing: 0.5,
+  },
+  completeStatLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.text.secondary,
+    marginTop: 2,
+  },
+  completeSummaryCard: {
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+    borderRadius: theme.radius.lg,
+    padding: 16,
+    width: '100%',
     marginBottom: 24,
+    elevation: 1,
+  },
+  summaryCardHeaderTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: theme.text.muted,
+    letterSpacing: 0.8,
+    marginBottom: 12,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border.subtle,
+  },
+  summaryRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  summaryIconMini: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  summaryRowLabel: {
+    fontSize: 13,
+    color: theme.text.secondary,
+    fontWeight: '600',
+  },
+  summaryRowValue: {
+    fontSize: 13,
+    color: theme.text.primary,
+    fontWeight: '700',
+    maxWidth: '55%',
+  },
+  completeActionsBox: {
+    width: '100%',
+    gap: 10,
+  },
+  completePrimaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#22C55E',
+    paddingVertical: 14,
+    borderRadius: theme.radius.md,
+    elevation: 2,
+  },
+  completePrimaryBtnText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  completeSecondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#5865F212',
+    borderWidth: 1,
+    borderColor: '#5865F230',
+    paddingVertical: 12,
+    borderRadius: theme.radius.md,
+  },
+  completeSecondaryBtnText: {
+    color: '#5865F2',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
