@@ -97,21 +97,21 @@ const DATE_FILTER_OPTIONS = [
 const SPEED_OPTIONS = [
   {
     ms: 500,
-    title: '🛡️ Anti-ban Normal (500 ms) — Recommandé',
-    desc: 'Protection anti-ban Discord équilibrée et fluide',
-    tag: 'Anti-ban Recommandé',
+    title: 'Normal (500 ms) — Recommandé',
+    desc: 'Vitesse fluide et équilibrée',
+    tag: 'Recommandé',
   },
   {
     ms: 1000,
-    title: '🛡️ Anti-ban Prudent (1 seconde) — Max sécurité',
-    desc: 'Sécurité maximale contre les bans pour gros volumes',
-    tag: 'Anti-ban Max',
+    title: '🛡️ Prudent (1 seconde) — Anti-ban',
+    desc: 'Protection anti-ban Discord pour gros volumes',
+    tag: 'Anti-ban',
   },
   {
     ms: 250,
-    title: '⚡ Anti-ban Rapide (250 ms)',
-    desc: 'Vitesse accélérée pour quelques messages récents',
-    tag: 'Anti-ban Rapide',
+    title: '⚡ Rapide (250 ms)',
+    desc: 'Pour quelques messages récents',
+    tag: 'Rapide',
   },
 ];
 
@@ -1194,79 +1194,6 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     </View>
                   </View>
 
-                  {/* 4. Vitesse de suppression & Protection Anti-ban */}
-                  <View style={styles.filterCard}>
-                    <View style={styles.filterHeaderRow}>
-                      <Ionicons name="shield-checkmark" size={18} color="#10B981" style={{ marginRight: 8 }} />
-                      <Text style={styles.filterLabel}>Vitesse de suppression</Text>
-                      <View style={{ flex: 1 }} />
-                      <View style={styles.antibanBadge}>
-                        <Text style={styles.antibanBadgeText}>ANTI-BAN ACTIF</Text>
-                      </View>
-                    </View>
-
-                    {/* Bouton déroulant compact */}
-                    <TouchableOpacity
-                      style={[styles.dropdownBtn, isSpeedDropdownOpen && styles.dropdownBtnActive]}
-                      onPress={() => setIsSpeedDropdownOpen(!isSpeedDropdownOpen)}
-                      activeOpacity={0.8}
-                    >
-                      <View style={styles.dropdownLeft}>
-                        <View style={[styles.dropdownIconCircle, { backgroundColor: '#10B98115' }]}>
-                          <Ionicons name="shield-checkmark" size={16} color="#10B981" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.dropdownValue, { color: '#10B981', fontWeight: '700' }]}>
-                            {(SPEED_OPTIONS.find((o) => o.ms === speedDelayMs) ?? SPEED_OPTIONS[0]).title}
-                          </Text>
-                          <Text style={styles.dropdownDesc} numberOfLines={1}>
-                            {(SPEED_OPTIONS.find((o) => o.ms === speedDelayMs) ?? SPEED_OPTIONS[0]).desc}
-                          </Text>
-                        </View>
-                      </View>
-                      <Ionicons
-                        name={isSpeedDropdownOpen ? 'chevron-up' : 'chevron-down'}
-                        size={20}
-                        color={theme.text.secondary}
-                      />
-                    </TouchableOpacity>
-
-                    {/* Menu déroulant dépliable */}
-                    {isSpeedDropdownOpen && (
-                      <View style={styles.dropdownMenu}>
-                        {SPEED_OPTIONS.map((opt, idx) => {
-                          const isSelected = speedDelayMs === opt.ms;
-                          return (
-                            <TouchableOpacity
-                              key={opt.ms}
-                              style={[
-                                styles.dropdownItem,
-                                isSelected && styles.dropdownItemSelected,
-                                idx < SPEED_OPTIONS.length - 1 && styles.dropdownItemBorder,
-                              ]}
-                              onPress={() => {
-                                setSpeedDelayMs(opt.ms);
-                                setIsSpeedDropdownOpen(false);
-                              }}
-                              activeOpacity={0.7}
-                            >
-                              <View style={[styles.summaryIconMini, { backgroundColor: '#10B98115', marginRight: 10 }]}>
-                                <Ionicons name="shield-checkmark" size={14} color="#10B981" />
-                              </View>
-                              <View style={{ flex: 1 }}>
-                                <Text style={[styles.dropdownItemTitle, isSelected && styles.dropdownItemTitleSelected]}>
-                                  {opt.title}
-                                </Text>
-                                <Text style={styles.dropdownItemDesc}>{opt.desc}</Text>
-                              </View>
-                              {isSelected && <Ionicons name="checkmark-circle" size={20} color="#10B981" />}
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    )}
-                  </View>
-
                   <View style={{ height: 40 }} />
                 </ScrollView>
 
@@ -1379,14 +1306,21 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                   {/* Sélecteur de méthode de suppression */}
                   <View style={styles.speedSelectorBox}>
                     <View style={styles.speedSelectorHeader}>
-                      <Ionicons name="shield-checkmark" size={15} color="#10B981" style={{ marginRight: 6 }} />
-                      <Text style={styles.speedSelectorLabel}>Vitesse & Anti-ban</Text>
+                      <Ionicons
+                        name={speedDelayMs === 1000 ? 'shield-checkmark' : 'speedometer-outline'}
+                        size={15}
+                        color={speedDelayMs === 1000 ? '#10B981' : '#5865F2'}
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text style={styles.speedSelectorLabel}>Méthode de suppression</Text>
+                      {speedDelayMs === 1000 && (
+                        <View style={[styles.antibanBadge, { marginLeft: 8 }]}>
+                          <Text style={styles.antibanBadgeText}>ANTI-BAN ACTIF</Text>
+                        </View>
+                      )}
                       <View style={{ flex: 1 }} />
-                      <View style={styles.antibanBadge}>
-                        <Text style={styles.antibanBadgeText}>ANTI-BAN ACTIF</Text>
-                      </View>
-                      <Text style={[styles.speedEstimationText, { marginLeft: 8 }]}>
-                        ~{estimatedSeconds}s
+                      <Text style={styles.speedEstimationText}>
+                        ~{estimatedSeconds}s estimées
                       </Text>
                     </View>
 
@@ -1397,11 +1331,31 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                       activeOpacity={0.8}
                     >
                       <View style={styles.dropdownLeft}>
-                        <View style={[styles.dropdownIconCircle, { backgroundColor: '#10B98115', width: 28, height: 28, borderRadius: 14 }]}>
-                          <Ionicons name="shield-checkmark" size={14} color="#10B981" />
+                        <View
+                          style={[
+                            styles.dropdownIconCircle,
+                            {
+                              backgroundColor: speedDelayMs === 1000 ? '#10B98115' : '#5865F215',
+                              width: 28,
+                              height: 28,
+                              borderRadius: 14,
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name={speedDelayMs === 1000 ? 'shield-checkmark' : 'speedometer-outline'}
+                            size={14}
+                            color={speedDelayMs === 1000 ? '#10B981' : '#5865F2'}
+                          />
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={[styles.dropdownValue, { fontSize: 13, color: '#10B981', fontWeight: '700' }]}>
+                          <Text
+                            style={[
+                              styles.dropdownValue,
+                              { fontSize: 13 },
+                              speedDelayMs === 1000 && { color: '#10B981', fontWeight: '700' },
+                            ]}
+                          >
                             {(SPEED_OPTIONS.find((o) => o.ms === speedDelayMs) ?? SPEED_OPTIONS[0]).title}
                           </Text>
                         </View>
@@ -1418,6 +1372,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                       <View style={styles.dropdownMenu}>
                         {SPEED_OPTIONS.map((opt, idx) => {
                           const isSelected = speedDelayMs === opt.ms;
+                          const isAntiBanOpt = opt.ms === 1000;
                           return (
                             <TouchableOpacity
                               key={opt.ms}
@@ -1432,16 +1387,42 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                               }}
                               activeOpacity={0.7}
                             >
-                              <View style={[styles.summaryIconMini, { backgroundColor: '#10B98115', marginRight: 10 }]}>
-                                <Ionicons name="shield-checkmark" size={14} color="#10B981" />
+                              <View
+                                style={[
+                                  styles.summaryIconMini,
+                                  {
+                                    backgroundColor: isAntiBanOpt ? '#10B98115' : '#5865F215',
+                                    marginRight: 10,
+                                  },
+                                ]}
+                              >
+                                <Ionicons
+                                  name={isAntiBanOpt ? 'shield-checkmark' : 'speedometer-outline'}
+                                  size={14}
+                                  color={isAntiBanOpt ? '#10B981' : '#5865F2'}
+                                />
                               </View>
                               <View style={{ flex: 1 }}>
-                                <Text style={[styles.dropdownItemTitle, isSelected && styles.dropdownItemTitleSelected]}>
-                                  {opt.title}
-                                </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                  <Text
+                                    style={[
+                                      styles.dropdownItemTitle,
+                                      isSelected && styles.dropdownItemTitleSelected,
+                                      isAntiBanOpt && { color: '#10B981' },
+                                    ]}
+                                  >
+                                    {opt.title}
+                                  </Text>
+                                </View>
                                 <Text style={styles.dropdownItemDesc}>{opt.desc}</Text>
                               </View>
-                              {isSelected && <Ionicons name="checkmark-circle" size={18} color="#10B981" />}
+                              {isSelected && (
+                                <Ionicons
+                                  name="checkmark-circle"
+                                  size={18}
+                                  color={isAntiBanOpt ? '#10B981' : '#5865F2'}
+                                />
+                              )}
                             </TouchableOpacity>
                           );
                         })}
@@ -1476,7 +1457,9 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                   {percent === 100 ? 'Nettoyage terminé !' : 'Suppression en cours...'}
                 </Text>
                 <Text style={styles.deletingSub}>
-                  Protection anti-ban active ({speedDelayMs} ms par message)
+                  {speedDelayMs === 1000
+                    ? '🛡️ Protection anti-ban active (1 seconde par message)'
+                    : `Vitesse de suppression : ${speedDelayMs} ms par message`}
                 </Text>
 
                 {/* Barre de progression */}
@@ -1601,16 +1584,32 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                       </View>
                     )}
 
-                    {/* Méthode anti-ban */}
+                    {/* Méthode appliquée */}
                     <View style={styles.summaryRow}>
                       <View style={styles.summaryRowLeft}>
-                        <View style={[styles.summaryIconMini, { backgroundColor: '#10B98115' }]}>
-                          <Ionicons name="shield-checkmark" size={13} color="#10B981" />
+                        <View
+                          style={[
+                            styles.summaryIconMini,
+                            { backgroundColor: speedDelayMs === 1000 ? '#10B98115' : '#5865F215' },
+                          ]}
+                        >
+                          <Ionicons
+                            name={speedDelayMs === 1000 ? 'shield-checkmark' : 'speedometer-outline'}
+                            size={13}
+                            color={speedDelayMs === 1000 ? '#10B981' : '#5865F2'}
+                          />
                         </View>
-                        <Text style={styles.summaryRowLabel}>Protection</Text>
+                        <Text style={styles.summaryRowLabel}>
+                          {speedDelayMs === 1000 ? 'Anti-ban' : 'Vitesse'}
+                        </Text>
                       </View>
-                      <Text style={styles.summaryRowValue}>
-                        Anti-ban ({speedDelayMs} ms/msg)
+                      <Text
+                        style={[
+                          styles.summaryRowValue,
+                          speedDelayMs === 1000 && { color: '#10B981', fontWeight: '700' },
+                        ]}
+                      >
+                        {speedDelayMs === 1000 ? 'Anti-ban (1s / message)' : `${speedDelayMs} ms / message`}
                       </Text>
                     </View>
 
