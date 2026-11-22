@@ -97,21 +97,21 @@ const DATE_FILTER_OPTIONS = [
 const SPEED_OPTIONS = [
   {
     ms: 500,
-    title: 'Normal (500 ms) — Recommandé',
-    desc: 'Protection anti-ban Discord équilibrée',
-    tag: 'Recommandé',
+    title: '🛡️ Anti-ban Normal (500 ms) — Recommandé',
+    desc: 'Protection anti-ban Discord équilibrée et fluide',
+    tag: 'Anti-ban Recommandé',
   },
   {
     ms: 1000,
-    title: 'Prudent (1 seconde)',
-    desc: 'Sécurité maximale pour gros volumes (+100 messages)',
-    tag: 'Max sécurité',
+    title: '🛡️ Anti-ban Prudent (1 seconde) — Max sécurité',
+    desc: 'Sécurité maximale contre les bans pour gros volumes',
+    tag: 'Anti-ban Max',
   },
   {
     ms: 250,
-    title: 'Rapide (250 ms)',
-    desc: 'Pour quelques messages récents',
-    tag: 'Rapide',
+    title: '⚡ Anti-ban Rapide (250 ms)',
+    desc: 'Vitesse accélérée pour quelques messages récents',
+    tag: 'Anti-ban Rapide',
   },
 ];
 
@@ -571,8 +571,8 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     if (!stopRef.current) {
       setDeletedCount(messagesToDelete.length);
       setCurrentStatus('✅ Nettoyage terminé avec succès !');
-      // Laisser l'utilisateur admirer la barre pleine à 100% et le compteur complet pendant ~1.2s
-      await new Promise<void>((resolve) => setTimeout(() => resolve(), 1200));
+      // Laisser l'utilisateur admirer la barre pleine à 100% et le compteur complet pendant exactement 1 seconde
+      await new Promise<void>((resolve) => setTimeout(() => resolve(), 1000));
     } else {
       setCurrentStatus(`Arrêt demandé : ${count} message(s) supprimé(s).`);
       await new Promise<void>((resolve) => setTimeout(() => resolve(), 800));
@@ -581,6 +581,15 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     await recordCleanHistory(count, messagesToDelete.length, stopRef.current);
     setStep('complete');
     onFinished?.(count);
+  };
+
+  const handleFinishAndClose = () => {
+    setStep('select_guild');
+    setSelectedChannelIds(new Set());
+    setScannedMessages([]);
+    setSelectedMessageIds(new Set());
+    setDeletedCount(0);
+    onClose();
   };
 
   const togglePause = () => {
@@ -1185,6 +1194,79 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     </View>
                   </View>
 
+                  {/* 4. Vitesse de suppression & Protection Anti-ban */}
+                  <View style={styles.filterCard}>
+                    <View style={styles.filterHeaderRow}>
+                      <Ionicons name="shield-checkmark" size={18} color="#10B981" style={{ marginRight: 8 }} />
+                      <Text style={styles.filterLabel}>Vitesse de suppression</Text>
+                      <View style={{ flex: 1 }} />
+                      <View style={styles.antibanBadge}>
+                        <Text style={styles.antibanBadgeText}>ANTI-BAN ACTIF</Text>
+                      </View>
+                    </View>
+
+                    {/* Bouton déroulant compact */}
+                    <TouchableOpacity
+                      style={[styles.dropdownBtn, isSpeedDropdownOpen && styles.dropdownBtnActive]}
+                      onPress={() => setIsSpeedDropdownOpen(!isSpeedDropdownOpen)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.dropdownLeft}>
+                        <View style={[styles.dropdownIconCircle, { backgroundColor: '#10B98115' }]}>
+                          <Ionicons name="shield-checkmark" size={16} color="#10B981" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.dropdownValue, { color: '#10B981', fontWeight: '700' }]}>
+                            {(SPEED_OPTIONS.find((o) => o.ms === speedDelayMs) ?? SPEED_OPTIONS[0]).title}
+                          </Text>
+                          <Text style={styles.dropdownDesc} numberOfLines={1}>
+                            {(SPEED_OPTIONS.find((o) => o.ms === speedDelayMs) ?? SPEED_OPTIONS[0]).desc}
+                          </Text>
+                        </View>
+                      </View>
+                      <Ionicons
+                        name={isSpeedDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                        size={20}
+                        color={theme.text.secondary}
+                      />
+                    </TouchableOpacity>
+
+                    {/* Menu déroulant dépliable */}
+                    {isSpeedDropdownOpen && (
+                      <View style={styles.dropdownMenu}>
+                        {SPEED_OPTIONS.map((opt, idx) => {
+                          const isSelected = speedDelayMs === opt.ms;
+                          return (
+                            <TouchableOpacity
+                              key={opt.ms}
+                              style={[
+                                styles.dropdownItem,
+                                isSelected && styles.dropdownItemSelected,
+                                idx < SPEED_OPTIONS.length - 1 && styles.dropdownItemBorder,
+                              ]}
+                              onPress={() => {
+                                setSpeedDelayMs(opt.ms);
+                                setIsSpeedDropdownOpen(false);
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              <View style={[styles.summaryIconMini, { backgroundColor: '#10B98115', marginRight: 10 }]}>
+                                <Ionicons name="shield-checkmark" size={14} color="#10B981" />
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={[styles.dropdownItemTitle, isSelected && styles.dropdownItemTitleSelected]}>
+                                  {opt.title}
+                                </Text>
+                                <Text style={styles.dropdownItemDesc}>{opt.desc}</Text>
+                              </View>
+                              {isSelected && <Ionicons name="checkmark-circle" size={20} color="#10B981" />}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+
                   <View style={{ height: 40 }} />
                 </ScrollView>
 
@@ -1297,11 +1379,14 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                   {/* Sélecteur de méthode de suppression */}
                   <View style={styles.speedSelectorBox}>
                     <View style={styles.speedSelectorHeader}>
-                      <Ionicons name="shield-checkmark-outline" size={15} color="#5865F2" style={{ marginRight: 6 }} />
-                      <Text style={styles.speedSelectorLabel}>Méthode de suppression</Text>
+                      <Ionicons name="shield-checkmark" size={15} color="#10B981" style={{ marginRight: 6 }} />
+                      <Text style={styles.speedSelectorLabel}>Vitesse & Anti-ban</Text>
                       <View style={{ flex: 1 }} />
-                      <Text style={styles.speedEstimationText}>
-                        ~{estimatedSeconds}s estimées
+                      <View style={styles.antibanBadge}>
+                        <Text style={styles.antibanBadgeText}>ANTI-BAN ACTIF</Text>
+                      </View>
+                      <Text style={[styles.speedEstimationText, { marginLeft: 8 }]}>
+                        ~{estimatedSeconds}s
                       </Text>
                     </View>
 
@@ -1312,11 +1397,11 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                       activeOpacity={0.8}
                     >
                       <View style={styles.dropdownLeft}>
-                        <View style={[styles.dropdownIconCircle, { backgroundColor: '#5865F215', width: 28, height: 28, borderRadius: 14 }]}>
-                          <Ionicons name="speedometer-outline" size={14} color="#5865F2" />
+                        <View style={[styles.dropdownIconCircle, { backgroundColor: '#10B98115', width: 28, height: 28, borderRadius: 14 }]}>
+                          <Ionicons name="shield-checkmark" size={14} color="#10B981" />
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={[styles.dropdownValue, { fontSize: 13 }]}>
+                          <Text style={[styles.dropdownValue, { fontSize: 13, color: '#10B981', fontWeight: '700' }]}>
                             {(SPEED_OPTIONS.find((o) => o.ms === speedDelayMs) ?? SPEED_OPTIONS[0]).title}
                           </Text>
                         </View>
@@ -1347,13 +1432,16 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                               }}
                               activeOpacity={0.7}
                             >
+                              <View style={[styles.summaryIconMini, { backgroundColor: '#10B98115', marginRight: 10 }]}>
+                                <Ionicons name="shield-checkmark" size={14} color="#10B981" />
+                              </View>
                               <View style={{ flex: 1 }}>
                                 <Text style={[styles.dropdownItemTitle, isSelected && styles.dropdownItemTitleSelected]}>
                                   {opt.title}
                                 </Text>
                                 <Text style={styles.dropdownItemDesc}>{opt.desc}</Text>
                               </View>
-                              {isSelected && <Ionicons name="checkmark-circle" size={18} color="#5865F2" />}
+                              {isSelected && <Ionicons name="checkmark-circle" size={18} color="#10B981" />}
                             </TouchableOpacity>
                           );
                         })}
@@ -1446,111 +1534,113 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
               </View>
             )}
 
-            {/* ================= ÉTAPE 6 : TERMINÉ (ERGONOMIE MODERNE) ================= */}
+            {/* ================= ÉTAPE 6 : TERMINÉ (ERGONOMIE MODERNE & BOUTON FIXE) ================= */}
             {step === 'complete' && (
-              <ScrollView
-                contentContainerStyle={styles.completeScrollContent}
-                showsVerticalScrollIndicator={false}
-              >
-                {/* Icône de succès avec double halo */}
-                <View style={styles.completeIconWrapper}>
-                  <View style={styles.completeIconOuter}>
-                    <View style={styles.completeIconInner}>
-                      <Ionicons name="checkmark-sharp" size={38} color="#FFF" />
+              <View style={{ flex: 1 }}>
+                <ScrollView
+                  style={{ flex: 1 }}
+                  contentContainerStyle={styles.completeScrollContent}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {/* Icône de succès avec double halo */}
+                  <View style={styles.completeIconWrapper}>
+                    <View style={styles.completeIconOuter}>
+                      <View style={styles.completeIconInner}>
+                        <Ionicons name="checkmark-sharp" size={38} color="#FFF" />
+                      </View>
                     </View>
                   </View>
-                </View>
 
-                {/* Titre & sous-titre */}
-                <Text style={styles.completeTitle}>Nettoyage réussi !</Text>
-                <Text style={styles.completeSubtitle}>
-                  Les messages ciblés ont été définitivement purgés avec succès de votre compte Discord.
-                </Text>
-
-                {/* Grande carte statistique percutante */}
-                <View style={styles.completeStatCard}>
-                  <Text style={styles.completeStatNumber}>-{deletedCount}</Text>
-                  <Text style={styles.completeStatLabel}>
-                    message{deletedCount > 1 ? 's' : ''} effacé{deletedCount > 1 ? 's' : ''} au total
+                  {/* Titre & sous-titre */}
+                  <Text style={styles.completeTitle}>Nettoyage réussi !</Text>
+                  <Text style={styles.completeSubtitle}>
+                    Les messages ciblés ont été définitivement purgés avec succès de votre compte Discord.
                   </Text>
-                </View>
 
-                {/* Récapitulatif de la session */}
-                <View style={styles.completeSummaryCard}>
-                  <Text style={styles.summaryCardHeaderTitle}>RÉCAPITULATIF DE LA SESSION</Text>
-
-                  {/* Cible */}
-                  <View style={styles.summaryRow}>
-                    <View style={styles.summaryRowLeft}>
-                      <View style={[styles.summaryIconMini, { backgroundColor: '#5865F215' }]}>
-                        <Ionicons name="server" size={13} color="#5865F2" />
-                      </View>
-                      <Text style={styles.summaryRowLabel}>Cible</Text>
-                    </View>
-                    <Text style={styles.summaryRowValue} numberOfLines={1}>
-                      {selectedGuild?.id === 'all_guilds'
-                        ? 'Tous les serveurs'
-                        : selectedGuild?.id === 'dms'
-                        ? 'Messages Privés (DMs)'
-                        : selectedGuild?.name ?? 'Discord'}
+                  {/* Grande carte statistique percutante */}
+                  <View style={styles.completeStatCard}>
+                    <Text style={styles.completeStatNumber}>-{deletedCount}</Text>
+                    <Text style={styles.completeStatLabel}>
+                      message{deletedCount > 1 ? 's' : ''} effacé{deletedCount > 1 ? 's' : ''} au total
                     </Text>
                   </View>
 
-                  {/* Salons (si serveur individuel) */}
-                  {selectedGuild?.id !== 'all_guilds' && selectedGuild?.id !== 'dms' && (
+                  {/* Récapitulatif de la session */}
+                  <View style={styles.completeSummaryCard}>
+                    <Text style={styles.summaryCardHeaderTitle}>RÉCAPITULATIF DE LA SESSION</Text>
+
+                    {/* Cible */}
                     <View style={styles.summaryRow}>
                       <View style={styles.summaryRowLeft}>
-                        <View style={[styles.summaryIconMini, { backgroundColor: '#8B5CF615' }]}>
-                          <Ionicons name="chatbubbles" size={13} color="#8B5CF6" />
+                        <View style={[styles.summaryIconMini, { backgroundColor: '#5865F215' }]}>
+                          <Ionicons name="server" size={13} color="#5865F2" />
                         </View>
-                        <Text style={styles.summaryRowLabel}>Salons</Text>
+                        <Text style={styles.summaryRowLabel}>Cible</Text>
                       </View>
-                      <Text style={styles.summaryRowValue}>
-                        {selectedChannelIds.size} salon{selectedChannelIds.size > 1 ? 's' : ''}
+                      <Text style={styles.summaryRowValue} numberOfLines={1}>
+                        {selectedGuild?.id === 'all_guilds'
+                          ? 'Tous les serveurs'
+                          : selectedGuild?.id === 'dms'
+                          ? 'Messages Privés (DMs)'
+                          : selectedGuild?.name ?? 'Discord'}
                       </Text>
                     </View>
-                  )}
 
-                  {/* Méthode anti-ban */}
-                  <View style={styles.summaryRow}>
-                    <View style={styles.summaryRowLeft}>
-                      <View style={[styles.summaryIconMini, { backgroundColor: '#10B98115' }]}>
-                        <Ionicons name="shield-checkmark" size={13} color="#10B981" />
+                    {/* Salons (si serveur individuel) */}
+                    {selectedGuild?.id !== 'all_guilds' && selectedGuild?.id !== 'dms' && (
+                      <View style={styles.summaryRow}>
+                        <View style={styles.summaryRowLeft}>
+                          <View style={[styles.summaryIconMini, { backgroundColor: '#8B5CF615' }]}>
+                            <Ionicons name="chatbubbles" size={13} color="#8B5CF6" />
+                          </View>
+                          <Text style={styles.summaryRowLabel}>Salons</Text>
+                        </View>
+                        <Text style={styles.summaryRowValue}>
+                          {selectedChannelIds.size} salon{selectedChannelIds.size > 1 ? 's' : ''}
+                        </Text>
                       </View>
-                      <Text style={styles.summaryRowLabel}>Protection</Text>
-                    </View>
-                    <Text style={styles.summaryRowValue}>
-                      Anti-ban ({speedDelayMs} ms/msg)
-                    </Text>
-                  </View>
+                    )}
 
-                  {/* Historique Cleanly */}
-                  <View style={[styles.summaryRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
-                    <View style={styles.summaryRowLeft}>
-                      <View style={[styles.summaryIconMini, { backgroundColor: '#F59E0B15' }]}>
-                        <Ionicons name="time" size={13} color="#F59E0B" />
+                    {/* Méthode anti-ban */}
+                    <View style={styles.summaryRow}>
+                      <View style={styles.summaryRowLeft}>
+                        <View style={[styles.summaryIconMini, { backgroundColor: '#10B98115' }]}>
+                          <Ionicons name="shield-checkmark" size={13} color="#10B981" />
+                        </View>
+                        <Text style={styles.summaryRowLabel}>Protection</Text>
                       </View>
-                      <Text style={styles.summaryRowLabel}>Historique</Text>
+                      <Text style={styles.summaryRowValue}>
+                        Anti-ban ({speedDelayMs} ms/msg)
+                      </Text>
                     </View>
-                    <Text style={[styles.summaryRowValue, { color: '#10B981', fontWeight: '700' }]}>
-                      Sauvegardé localement ✓
-                    </Text>
-                  </View>
-                </View>
 
-                {/* Boutons d'action */}
-                <View style={styles.completeActionsBox}>
-                  {/* Bouton principal : Terminer & Quitter */}
+                    {/* Historique Cleanly */}
+                    <View style={[styles.summaryRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                      <View style={styles.summaryRowLeft}>
+                        <View style={[styles.summaryIconMini, { backgroundColor: '#F59E0B15' }]}>
+                          <Ionicons name="time" size={13} color="#F59E0B" />
+                        </View>
+                        <Text style={styles.summaryRowLabel}>Historique</Text>
+                      </View>
+                      <Text style={[styles.summaryRowValue, { color: '#10B981', fontWeight: '700' }]}>
+                        Sauvegardé localement ✓
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ height: 16 }} />
+                </ScrollView>
+
+                {/* Footer FIXE EN BAS avec bouton Terminé */}
+                <View style={styles.completeFixedBottomBar}>
                   <TouchableOpacity
                     style={styles.completePrimaryBtn}
-                    onPress={onClose}
+                    onPress={handleFinishAndClose}
                     activeOpacity={0.85}
                   >
-                    <Ionicons name="checkmark-done" size={20} color="#FFF" style={{ marginRight: 8 }} />
-                    <Text style={styles.completePrimaryBtnText}>Retour à l'accueil</Text>
+                    <Ionicons name="checkmark-circle" size={20} color="#FFF" style={{ marginRight: 8 }} />
+                    <Text style={styles.completePrimaryBtnText}>Terminé</Text>
                   </TouchableOpacity>
 
-                  {/* Bouton secondaire : Nettoyer un autre serveur */}
                   <TouchableOpacity
                     style={styles.completeSecondaryBtn}
                     onPress={() => {
@@ -1562,11 +1652,11 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     }}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="refresh-outline" size={18} color="#5865F2" style={{ marginRight: 6 }} />
+                    <Ionicons name="refresh-outline" size={16} color="#5865F2" style={{ marginRight: 6 }} />
                     <Text style={styles.completeSecondaryBtnText}>Nettoyer un autre serveur</Text>
                   </TouchableOpacity>
                 </View>
-              </ScrollView>
+              </View>
             )}
           </View>
         )}
@@ -2418,6 +2508,29 @@ const styles = StyleSheet.create({
     color: theme.text.primary,
     fontWeight: '700',
     maxWidth: '55%',
+  },
+  completeFixedBottomBar: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
+    backgroundColor: '#FFF',
+    borderTopWidth: 1,
+    borderTopColor: theme.border.subtle,
+    gap: 8,
+  },
+  antibanBadge: {
+    backgroundColor: '#10B98118',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: theme.radius.full,
+    borderWidth: 1,
+    borderColor: '#10B98140',
+  },
+  antibanBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#10B981',
+    letterSpacing: 0.5,
   },
   completeActionsBox: {
     width: '100%',
