@@ -1,6 +1,5 @@
 // DeletionProgress — Clean Light theme
 import { View, Text, StyleSheet } from 'react-native';
-import { FontAwesome5 } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
 
 type Props = {

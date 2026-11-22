@@ -1,91 +1,122 @@
-// OAuth générique — PKCE avec expo-auth-session
-// ⚠️  Ce fichier NE DOIT PAS être importé au top-level
-// Utiliser uniquement via require() dynamique dans useConnect.ts
-
-// Ces imports sont OK ici car oauth.ts lui-même n'est chargé que lazily
-import * as AuthSession from 'expo-auth-session';
-import * as WebBrowser from 'expo-web-browser';
-
-// Ferme le navigateur automatiquement sur Android
-WebBrowser.maybeCompleteAuthSession();
+// OAuth générique — InAppBrowser natif pour React Native CLI
+import InAppBrowser from 'react-native-inappbrowser-reborn';
 
 export type OAuthResult = {
-  accessToken:   string;
+  accessToken: string;
   refreshToken?: string;
-  expiresIn?:    number;
-  scope?:        string;
+  expiresIn?: number;
+  scope?: string;
 };
 
 export type OAuthConfig = {
-  clientId:              string;
+  clientId: string;
   authorizationEndpoint: string;
-  tokenEndpoint:         string;
-  scopes:                string[];
-  redirectUri?:          string;
+  tokenEndpoint: string;
+  scopes: string[];
+  redirectUri: string;
+  appScheme?: string;
+  responseType?: 'code' | 'token';
+  clientSecret?: string;
 };
 
 /**
- * Lance un flow OAuth2 avec PKCE
+ * Lance un flow OAuth2 standard dans le navigateur in-app Chrome Custom Tab
  */
 export async function launchOAuth(config: OAuthConfig): Promise<OAuthResult> {
-  const redirectUri = config.redirectUri ?? AuthSession.makeRedirectUri({
-    scheme: 'cleanly',
-  });
+  const redirectUri = config.redirectUri;
+  const interceptScheme = config.appScheme ?? 'cleanly://oauth';
+  const responseType = config.responseType ?? 'token';
+  const scopeParam = encodeURIComponent(config.scopes.join(' '));
 
-  // Utiliser AuthSession.loadAsync pour éviter le PKCE natif (Expo Go compat)
-  const request = new AuthSession.AuthRequest({
-    clientId:   config.clientId,
-    redirectUri,
-    scopes:     config.scopes,
-    usePKCE:    true,
-    codeChallengeMethod: AuthSession.CodeChallengeMethod.S256,
-  });
+  const authUrl = `${config.authorizationEndpoint}?response_type=${responseType}&client_id=${config.clientId}&scope=${scopeParam}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+  console.log('[Cleanly OAuth] Lancement authUrl:', authUrl);
+  console.log('[Cleanly OAuth] interceptScheme:', interceptScheme);
 
-  const result = await request.promptAsync({
-    authorizationEndpoint: config.authorizationEndpoint,
-  });
+  if (await InAppBrowser.isAvailable()) {
+    const result = await InAppBrowser.openAuth(authUrl, interceptScheme, {
+      showTitle: true,
+      toolbarColor: '#1877F2',
+      secondaryToolbarColor: '#FFFFFF',
+      navigationBarColor: '#FFFFFF',
+      enableUrlBarHiding: true,
+      enableDefaultShare: false,
+      animations: {
+        startEnter: 'slide_in_right',
+        startExit: 'slide_out_left',
+        endEnter: 'slide_in_left',
+        endExit: 'slide_out_right',
+      },
+    });
 
-  if (result.type !== 'success' || !result.params.code) {
-    throw new Error(`OAuth annulé : ${result.type}`);
+    if (result.type === 'success' && result.url) {
+      // 1. Cas Implicit Grant (#access_token=...) ou query
+      const hashOrQuery = result.url.includes('#') ? result.url.split('#')[1] : result.url.split('?')[1] ?? '';
+      const params = new URLSearchParams(hashOrQuery);
+
+      const accessToken = params.get('access_token');
+      if (accessToken) {
+        return {
+          accessToken,
+          expiresIn: params.has('expires_in') ? Number(params.get('expires_in')) : undefined,
+          scope: params.get('scope') ?? undefined,
+        };
+      }
+
+      // 2. Cas Authorization Code (?code=...)
+      const code = params.get('code');
+      if (code) {
+        return exchangeCode({
+          code,
+          clientId: config.clientId,
+          clientSecret: config.clientSecret,
+          redirectUri,
+          tokenEndpoint: config.tokenEndpoint,
+        });
+      }
+
+      throw new Error(`Aucun token ou code trouvé dans la redirection : ${result.url}`);
+    } else {
+      throw new Error(`OAuth annulé : ${result.type}`);
+    }
+  } else {
+    throw new Error('Navigateur in-app non disponible sur cet appareil');
   }
-
-  // Échange code → token
-  return exchangeCode({
-    code:          result.params.code,
-    codeVerifier:  request.codeVerifier ?? '',
-    clientId:      config.clientId,
-    redirectUri,
-    tokenEndpoint: config.tokenEndpoint,
-  });
 }
 
 async function exchangeCode(params: {
-  code: string; codeVerifier: string;
-  clientId: string; redirectUri: string; tokenEndpoint: string;
+  code: string;
+  clientId: string;
+  clientSecret?: string;
+  redirectUri: string;
+  tokenEndpoint: string;
 }): Promise<OAuthResult> {
-  const body = new URLSearchParams({
-    grant_type:    'authorization_code',
-    code:          params.code,
-    redirect_uri:  params.redirectUri,
-    client_id:     params.clientId,
-    code_verifier: params.codeVerifier,
-  });
+  const bodyParams: Record<string, string> = {
+    grant_type: 'authorization_code',
+    code: params.code,
+    redirect_uri: params.redirectUri,
+    client_id: params.clientId,
+  };
+
+  if (params.clientSecret) {
+    bodyParams.client_secret = params.clientSecret;
+  }
 
   const res = await fetch(params.tokenEndpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
+    body: new URLSearchParams(bodyParams).toString(),
   });
 
   if (!res.ok) {
-    throw new Error(`Token exchange failed: ${res.status}`);
+    const errText = await res.text();
+    throw new Error(`Token exchange failed (${res.status}): ${errText}`);
   }
 
-  const data = await res.json() as Record<string, string | number>;
+  const data = (await res.json()) as Record<string, string | number>;
   return {
-    accessToken:  data['access_token'] as string,
+    accessToken: data['access_token'] as string,
     refreshToken: data['refresh_token'] as string | undefined,
-    expiresIn:    data['expires_in'] as number | undefined,
-    scope:        data['scope'] as string | undefined,
+    expiresIn: data['expires_in'] as number | undefined,
+    scope: data['scope'] as string | undefined,
   };
 }

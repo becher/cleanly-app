@@ -1,10 +1,22 @@
 // Client Discord API v9
-// Basé sur l'analyse REA de Unpost.apk — endpoints authentiques
-
+// Basé sur l'analyse REA de Unpost.apk — support User Token + Bot/OAuth
 import { runWith429Retry, waitPlatformDelay } from './rateLimiter';
 
-// Base URL de l'API Discord
 const DISCORD_API = 'https://discord.com/api/v9';
+
+export function formatDiscordAuth(token: string): string {
+  if (token.startsWith('Bot ') || token.startsWith('Bearer ')) {
+    return token;
+  }
+  // User token direct
+  return token;
+}
+
+const getHeaders = (token: string) => ({
+  Authorization: formatDiscordAuth(token),
+  'User-Agent': 'Discord-Android/867',
+  'Content-Type': 'application/json',
+});
 
 // Types Discord
 export type DiscordMessage = {
@@ -12,17 +24,21 @@ export type DiscordMessage = {
   content: string;
   timestamp: string;
   channel_id: string;
+  channel_name?: string;
   author: {
     id: string;
     username: string;
   };
+  attachments?: Array<{ id: string; url: string; filename?: string }>;
+  pinned?: boolean;
 };
 
 export type DiscordChannel = {
   id: string;
   name: string;
-  type: number; // 0=texte, 2=vocal, etc.
+  type: number; // 0=texte, 1=DM direct, 3=groupe DM, etc.
   guild_id?: string;
+  recipients?: Array<{ id: string; username: string }>;
 };
 
 export type DiscordGuild = {
@@ -37,7 +53,7 @@ export type DiscordGuild = {
 export async function getDiscordGuilds(token: string): Promise<DiscordGuild[]> {
   return runWith429Retry(async () => {
     const response = await fetch(`${DISCORD_API}/users/@me/guilds`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: getHeaders(token),
     });
 
     if (!response.ok) {
@@ -57,11 +73,28 @@ export async function getDiscordChannels(
 ): Promise<DiscordChannel[]> {
   return runWith429Retry(async () => {
     const response = await fetch(`${DISCORD_API}/guilds/${guildId}/channels`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: getHeaders(token),
     });
 
     if (!response.ok) {
       throwDiscordError(response.status, 'getChannels');
+    }
+
+    return response.json() as Promise<DiscordChannel[]>;
+  }, 'discord');
+}
+
+/**
+ * Récupère les canaux de messages privés (DMs) de l'utilisateur
+ */
+export async function getDiscordDirectMessages(token: string): Promise<DiscordChannel[]> {
+  return runWith429Retry(async () => {
+    const response = await fetch(`${DISCORD_API}/users/@me/channels`, {
+      headers: getHeaders(token),
+    });
+
+    if (!response.ok) {
+      throwDiscordError(response.status, 'getDirectMessages');
     }
 
     return response.json() as Promise<DiscordChannel[]>;
@@ -74,7 +107,7 @@ export async function getDiscordChannels(
 export async function getDiscordMessages(
   token: string,
   channelId: string,
-  beforeId?: string // Pour la pagination
+  beforeId?: string
 ): Promise<DiscordMessage[]> {
   return runWith429Retry(async () => {
     const url = new URL(`${DISCORD_API}/channels/${channelId}/messages`);
@@ -82,7 +115,7 @@ export async function getDiscordMessages(
     if (beforeId) url.searchParams.set('before', beforeId);
 
     const response = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: getHeaders(token),
     });
 
     if (!response.ok) {
@@ -94,27 +127,27 @@ export async function getDiscordMessages(
 }
 
 /**
- * Supprime un message Discord
- * Attend le délai plateforme avant d'envoyer pour éviter le rate limit
+ * Supprime un message Discord (délai anti-ban configurable, 500ms par défaut)
  */
 export async function deleteDiscordMessage(
   token: string,
   channelId: string,
-  messageId: string
+  messageId: string,
+  delayMs: number = 500
 ): Promise<void> {
-  // Délai avant suppression (500ms pour Discord)
-  await waitPlatformDelay('discord');
+  if (delayMs > 0) {
+    await new Promise<void>((resolve) => setTimeout(() => resolve(), delayMs));
+  }
 
   await runWith429Retry(async () => {
     const response = await fetch(
       `${DISCORD_API}/channels/${channelId}/messages/${messageId}`,
       {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: getHeaders(token),
       }
     );
 
-    // 204 = suppression OK, 404 = déjà supprimé (OK aussi)
     if (response.status !== 204 && response.status !== 404) {
       throwDiscordError(response.status, 'deleteMessage');
     }
@@ -122,8 +155,7 @@ export async function deleteDiscordMessage(
 }
 
 /**
- * Récupère TOUS les messages d'un canal (toutes les pages)
- * Utile pour préparer la queue de suppression
+ * Récupère tous les messages d'un canal avec pagination
  */
 export async function getAllDiscordMessages(
   token: string,
@@ -135,22 +167,17 @@ export async function getAllDiscordMessages(
 
   while (true) {
     const batch = await getDiscordMessages(token, channelId, lastId);
-
     if (batch.length === 0) break;
 
     allMessages.push(...batch);
     lastId = batch[batch.length - 1].id;
-
     onProgress?.(allMessages.length);
 
-    // Si moins de 100 messages → c'est la dernière page
     if (batch.length < 100) break;
   }
 
   return allMessages;
 }
-
-// --- Utilitaire privé ---
 
 function throwDiscordError(status: number, context: string): never {
   const error = Object.assign(new Error(`Discord API ${context} → HTTP ${status}`), {
@@ -159,4 +186,3 @@ function throwDiscordError(status: number, context: string): never {
   });
   throw error;
 }
-

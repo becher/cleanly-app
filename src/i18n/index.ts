@@ -3,7 +3,6 @@
 
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import * as Localization from 'expo-localization';
 
 import en from './locales/en.json';
 import fr from './locales/fr.json';
@@ -13,14 +12,10 @@ import de from './locales/de.json';
 import ja from './locales/ja.json';
 import zh from './locales/zh.json';
 
-// Langue détectée depuis le téléphone
-const deviceLanguage = Localization.getLocales()[0]?.languageCode ?? 'en';
+// Langue par défaut
+const initialLanguage = 'fr';
 
-// Langues supportées
 const SUPPORTED_LANGUAGES = ['en', 'fr', 'ar', 'es', 'de', 'ja', 'zh'];
-
-// Si la langue du téléphone est supportée → on l'utilise, sinon anglais
-const initialLanguage = SUPPORTED_LANGUAGES.includes(deviceLanguage) ? deviceLanguage : 'en';
 
 i18n.use(initReactI18next).init({
   resources: {
@@ -33,12 +28,11 @@ i18n.use(initReactI18next).init({
     zh: { translation: zh },
   },
   lng: initialLanguage,
-  fallbackLng: 'en',
+  fallbackLng: 'fr',
   interpolation: {
-    escapeValue: false, // React gère déjà l'échappement XSS
+    escapeValue: false,
   },
 });
 
 export default i18n;
 export { SUPPORTED_LANGUAGES };
-

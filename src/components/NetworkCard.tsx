@@ -1,6 +1,7 @@
 // NetworkCard — Clean Light theme
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
+import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { theme } from '../constants/theme';
 
 type PlatformIconConfig =
@@ -8,14 +9,14 @@ type PlatformIconConfig =
   | { lib: 'mci'; name: string };
 
 const PLATFORM_ICONS: Record<string, PlatformIconConfig> = {
-  discord:  { lib: 'fa5', name: 'discord'          },
-  twitter:  { lib: 'fa5', name: 'twitter'           },
-  reddit:   { lib: 'fa5', name: 'reddit'            },
-  mastodon: { lib: 'fa5', name: 'mastodon'          },
-  youtube:  { lib: 'fa5', name: 'youtube'           },
-  bluesky:  { lib: 'mci', name: 'cloud-outline'     },
-  threads:  { lib: 'mci', name: 'at'                },
-  teams:    { lib: 'mci', name: 'microsoft-teams'   },
+  discord: { lib: 'fa5', name: 'discord' },
+  twitter: { lib: 'fa5', name: 'twitter' },
+  reddit: { lib: 'fa5', name: 'reddit' },
+  mastodon: { lib: 'fa5', name: 'mastodon' },
+  youtube: { lib: 'fa5', name: 'youtube' },
+  bluesky: { lib: 'mci', name: 'cloud-outline' },
+  threads: { lib: 'mci', name: 'at' },
+  teams: { lib: 'mci', name: 'microsoft-teams' },
 };
 
 type Props = {

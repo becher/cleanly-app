@@ -4,7 +4,6 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import { useAuthStore } from '../store/authStore';
-import { isExpoGo } from '../utils/environment';
 import type { Platform } from '../types';
 
 type ConnectState = 'idle' | 'connecting' | 'success' | 'error';
@@ -14,16 +13,6 @@ export function useConnect(platformId: Platform) {
   const addAccount = useAuthStore((s) => s.addAccount);
 
   async function connect() {
-    // Sur Expo Go : OAuth n'est pas supporté (expo-crypto natif requis)
-    if (isExpoGo) {
-      Alert.alert(
-        '🔧 Dev build requis',
-        'L\'authentification OAuth nécessite un build natif.\n\nCommande : eas build --profile development',
-        [{ text: 'Compris' }]
-      );
-      return;
-    }
-
     setState('connecting');
     try {
       switch (platformId) {
@@ -35,14 +24,14 @@ export function useConnect(platformId: Platform) {
           const { token, profile } = await connectDiscord();
 
           await addAccount({
-            id:           `discord_${profile.id}`,
-            platform:     'discord',
-            username:     profile.username,
-            displayName:  profile.global_name ?? profile.username,
-            avatar:       getDiscordAvatarUrl(profile.id, profile.avatar),
-            token:        token.accessToken,
+            id: `discord_${profile.id}`,
+            platform: 'discord',
+            username: profile.username,
+            displayName: profile.global_name ?? profile.username,
+            avatar: getDiscordAvatarUrl(profile.id, profile.avatar),
+            token: token.accessToken,
             refreshToken: token.refreshToken,
-            connectedAt:  Date.now(),
+            connectedAt: Date.now(),
           });
 
           setState('success');

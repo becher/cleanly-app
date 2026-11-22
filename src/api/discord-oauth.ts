@@ -6,26 +6,33 @@ import { getDiscordGuilds } from './discord';
 
 // ⚠️  Client ID à récupérer sur https://discord.com/developers/applications
 // Stocké ici en constante pour le dev — en prod, utiliser EAS Secrets
-const DISCORD_CLIENT_ID = process.env.EXPO_PUBLIC_DISCORD_CLIENT_ID ?? 'TON_CLIENT_ID_ICI';
+const DISCORD_CLIENT_ID = '1572651733640028261';
 
-const DISCORD_OAUTH_CONFIG = {
-  clientId:              DISCORD_CLIENT_ID,
+export const DISCORD_OAUTH_CONFIG = {
+  clientId: DISCORD_CLIENT_ID,
   authorizationEndpoint: 'https://discord.com/oauth2/authorize',
-  tokenEndpoint:         'https://discord.com/api/oauth2/token',
-  scopes:                ['identify', 'guilds', 'guilds.members.read'],
+  tokenEndpoint: 'https://discord.com/api/oauth2/token',
+  scopes: ['identify', 'guilds', 'guilds.members.read'],
+  redirectUri: 'https://becher.github.io/cleanly-app/oauth/',
+  appScheme: 'cleanly://oauth',
+  responseType: 'token' as const,
 };
 
+export function getDiscordAuthUrl(): string {
+  const scopeParam = encodeURIComponent(DISCORD_OAUTH_CONFIG.scopes.join(' '));
+  return `${DISCORD_OAUTH_CONFIG.authorizationEndpoint}?response_type=${DISCORD_OAUTH_CONFIG.responseType}&client_id=${DISCORD_OAUTH_CONFIG.clientId}&scope=${scopeParam}&redirect_uri=${encodeURIComponent(DISCORD_OAUTH_CONFIG.redirectUri)}`;
+}
+
 export type DiscordUserProfile = {
-  id:            string;
-  username:      string;
+  id: string;
+  username: string;
   discriminator: string;
-  avatar:        string | null;
-  global_name:   string | null;
+  avatar: string | null;
+  global_name: string | null;
 };
 
 /**
- * Lance le flow OAuth Discord complet
- * Retourne le token + le profil de l'utilisateur
+ * Lance le flow OAuth Discord complet (InAppBrowser)
  */
 export async function connectDiscord(): Promise<{
   token: OAuthResult;
@@ -43,9 +50,16 @@ export async function connectDiscord(): Promise<{
 /**
  * Récupère le profil de l'utilisateur connecté
  */
-async function fetchDiscordProfile(accessToken: string): Promise<DiscordUserProfile> {
+export async function fetchDiscordProfile(accessToken: string): Promise<DiscordUserProfile> {
+  const authHeader = accessToken.startsWith('Bearer ') || accessToken.startsWith('Bot ')
+    ? accessToken
+    : accessToken;
+
   const response = await fetch('https://discord.com/api/v9/users/@me', {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: {
+      Authorization: authHeader,
+      'User-Agent': 'Discord-Android/867',
+    },
   });
 
   if (!response.ok) {
