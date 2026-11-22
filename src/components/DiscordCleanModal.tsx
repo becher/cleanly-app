@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { theme } from '../constants/theme';
+import { useHistoryStore } from '../store/historyStore';
 import {
   getDiscordGuilds,
   getDiscordChannels,
@@ -373,6 +374,37 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     );
   };
 
+  const recordCleanHistory = async (deleted: number, total: number, isInterrupted: boolean) => {
+    if (deleted === 0 && total === 0) return;
+    try {
+      const targetName =
+        selectedGuild?.id === 'dms'
+          ? 'Messages Privés (DMs)'
+          : `${selectedGuild?.name ?? 'Discord'} (${selectedChannelIds.size} salon${selectedChannelIds.size > 1 ? 's' : ''})`;
+
+      const dateOpt = DATE_FILTER_OPTIONS.find((o) => o.days === filterDays);
+      const speedOpt = SPEED_OPTIONS.find((o) => o.ms === speedDelayMs);
+
+      await useHistoryStore.getState().addRecord({
+        platform: 'discord',
+        targetName,
+        deletedCount: deleted,
+        totalTargeted: total,
+        status: isInterrupted ? 'interrupted' : 'completed',
+        filters: {
+          keyword: filterKeyword.trim() || undefined,
+          dateFilterTitle: dateOpt?.title,
+          onlyWithAttachments: onlyWithAttachments || undefined,
+          onlyWithLinks: onlyWithLinks || undefined,
+          ignorePinned,
+          speedTitle: speedOpt?.title,
+        },
+      });
+    } catch (e) {
+      console.warn('[DiscordCleanModal] Erreur enregistrement historique:', e);
+    }
+  };
+
   const executeDeletion = async () => {
     setStep('deleting');
     setDeletedCount(0);
@@ -403,6 +435,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
       }
     }
 
+    await recordCleanHistory(count, messagesToDelete.length, stopRef.current);
     setStep('complete');
     onFinished?.(count);
   };
@@ -421,7 +454,6 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
         style: 'destructive',
         onPress: () => {
           stopRef.current = true;
-          setStep('complete');
         },
       },
     ]);
