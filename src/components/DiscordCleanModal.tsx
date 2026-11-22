@@ -27,6 +27,7 @@ import {
   getDiscordDirectMessages,
   getDiscordMessages,
   deleteDiscordMessage,
+  searchDiscordGuildMessages,
   DiscordGuild,
   DiscordChannel,
   DiscordMessage,
@@ -142,8 +143,10 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
   const [deletedCount, setDeletedCount] = useState(0);
   const [currentStatus, setCurrentStatus] = useState('');
   const [isPaused, setIsPaused] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   const pauseRef = useRef(false);
   const stopRef = useRef(false);
+  const scanAbortedRef = useRef(false);
 
   // Reset à l'ouverture
   useEffect(() => {
@@ -264,7 +267,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     setSelectedChannelIds(new Set());
   };
 
-  // 3. Scanner les messages sur tous les salons sélectionnés
+  // 3. Scanner les messages sur les salons sélectionnés (Optimisé & Parallélisé)
   const handleStartScan = async () => {
     if (selectedChannelIds.size === 0) {
       Alert.alert('Attention', 'Veuillez sélectionner au moins un salon.');
@@ -272,54 +275,103 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     }
 
     setLoading(true);
+    setIsScanning(true);
     setError(null);
-    setLoadingText(`Analyse des messages dans ${selectedChannelIds.size} salon(s)...`);
+    scanAbortedRef.current = false;
+    setLoadingText('Recherche instantanée des messages...');
+
+    const thresholdDate =
+      filterDays > 0 ? Date.now() - filterDays * 24 * 60 * 60 * 1000 : 0;
+    const lowerKeyword = filterKeyword.trim().toLowerCase();
+    const linkRegex = /(https?:\/\/[^\s]+)/g;
+    const allFound: DiscordMessage[] = [];
+
+    // Helper pour valider les filtres sur un message
+    const matchesFilters = (msg: DiscordMessage) => {
+      if (msg.author.id !== userId) return false;
+      if (ignorePinned && msg.pinned) return false;
+      if (thresholdDate > 0) {
+        const msgDate = new Date(msg.timestamp).getTime();
+        if (msgDate > thresholdDate) return false;
+      }
+      if (lowerKeyword && !msg.content.toLowerCase().includes(lowerKeyword)) {
+        return false;
+      }
+      if (onlyWithAttachments && (!msg.attachments || msg.attachments.length === 0)) {
+        return false;
+      }
+      if (onlyWithLinks && !linkRegex.test(msg.content)) {
+        return false;
+      }
+      return true;
+    };
 
     try {
-      const allFound: DiscordMessage[] = [];
-      const thresholdDate =
-        filterDays > 0 ? Date.now() - filterDays * 24 * 60 * 60 * 1000 : 0;
-      const lowerKeyword = filterKeyword.trim().toLowerCase();
-      const linkRegex = /(https?:\/\/[^\s]+)/g;
-
-      for (const channelId of selectedChannelIds) {
-        const channelObj = channels.find((c) => c.id === channelId);
-        const channelName = channelObj ? channelObj.name : channelId;
-
-        const messages = await getDiscordMessages(token, channelId);
-
-        for (const msg of messages) {
-          // Uniquement les messages de l'utilisateur connecté
-          if (msg.author.id !== userId) continue;
-
-          // Filtre ignoré si épinglé
-          if (ignorePinned && msg.pinned) continue;
-
-          // Filtre date
-          if (thresholdDate > 0) {
-            const msgDate = new Date(msg.timestamp).getTime();
-            if (msgDate > thresholdDate) continue; // Plus récent que le seuil → ignorer
-          }
-
-          // Filtre mot-clé
-          if (lowerKeyword && !msg.content.toLowerCase().includes(lowerKeyword)) {
-            continue;
-          }
-
-          // Filtre pièces jointes
-          if (onlyWithAttachments && (!msg.attachments || msg.attachments.length === 0)) {
-            continue;
-          }
-
-          // Filtre liens
-          if (onlyWithLinks && !linkRegex.test(msg.content)) {
-            continue;
-          }
-
-          allFound.push({
-            ...msg,
-            channel_name: channelName,
+      // Étape A : Tentative Fast Search API si on est sur un serveur Discord
+      let fastSearchSuccess = false;
+      if (selectedGuild && selectedGuild.id !== 'dms') {
+        try {
+          const searchRes = await searchDiscordGuildMessages(token, selectedGuild.id, {
+            authorId: userId,
+            content: filterKeyword.trim() || undefined,
+            has: onlyWithAttachments ? 'file' : onlyWithLinks ? 'link' : undefined,
           });
+
+          if (searchRes && Array.isArray(searchRes.messages) && searchRes.messages.length > 0) {
+            for (const msg of searchRes.messages) {
+              // Vérifier si le message appartient à l'un des salons sélectionnés
+              if (selectedChannelIds.has(msg.channel_id)) {
+                if (matchesFilters(msg)) {
+                  const channelObj = channels.find((c) => c.id === msg.channel_id);
+                  allFound.push({
+                    ...msg,
+                    channel_name: channelObj ? channelObj.name : msg.channel_id,
+                  });
+                }
+              }
+            }
+            fastSearchSuccess = true;
+          }
+        } catch {
+          // Fallback sur le scan direct des salons
+        }
+      }
+
+      // Étape B : Si Fast Search non disponible ou DMs, scan parallèle par lots (Batch de 4 salons)
+      if (!fastSearchSuccess) {
+        const channelList = Array.from(selectedChannelIds);
+        const BATCH_SIZE = 4;
+        let processedCount = 0;
+
+        for (let i = 0; i < channelList.length; i += BATCH_SIZE) {
+          if (scanAbortedRef.current) break;
+
+          const batch = channelList.slice(i, i + BATCH_SIZE);
+          await Promise.all(
+            batch.map(async (channelId) => {
+              const channelObj = channels.find((c) => c.id === channelId);
+              const channelName = channelObj ? channelObj.name : channelId;
+
+              try {
+                const messages = await getDiscordMessages(token, channelId);
+                for (const msg of messages) {
+                  if (matchesFilters(msg)) {
+                    allFound.push({
+                      ...msg,
+                      channel_name: channelName,
+                    });
+                  }
+                }
+              } catch (e) {
+                console.warn(`Erreur scan salon ${channelId}:`, e);
+              }
+            })
+          );
+
+          processedCount += batch.length;
+          setLoadingText(
+            `Analyse : ${Math.min(processedCount, channelList.length)}/${channelList.length} salons • ${allFound.length} message(s) trouvé(s)`
+          );
         }
       }
 
@@ -335,6 +387,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
       setError(err instanceof Error ? err.message : 'Erreur scan messages');
     } finally {
       setLoading(false);
+      setIsScanning(false);
     }
   };
 
@@ -561,6 +614,18 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
           <View style={styles.centerBox}>
             <ActivityIndicator size="large" color="#5865F2" />
             <Text style={styles.loadingText}>{loadingText}</Text>
+            {isScanning && (
+              <TouchableOpacity
+                style={styles.stopScanBtn}
+                onPress={() => {
+                  scanAbortedRef.current = true;
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="stop-circle-outline" size={18} color={theme.accent.amber} />
+                <Text style={styles.stopScanBtnText}>Afficher les messages déjà trouvés</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : error ? (
           <View style={styles.centerBox}>
@@ -1559,6 +1624,25 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 14,
     color: theme.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  stopScanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: theme.radius.full,
+    backgroundColor: '#F59E0B15',
+    borderWidth: 1,
+    borderColor: '#F59E0B40',
+  },
+  stopScanBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.accent.amber,
   },
   errorText: {
     marginTop: 12,

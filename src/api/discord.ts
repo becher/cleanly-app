@@ -179,6 +179,61 @@ export async function getAllDiscordMessages(
   return allMessages;
 }
 
+/**
+ * Recherche instantanée de messages sur un serveur Discord (Fast Search API)
+ * Permet de récupérer directement les messages de l'utilisateur sur tous les salons en 1 seule requête
+ */
+export async function searchDiscordGuildMessages(
+  token: string,
+  guildId: string,
+  options: {
+    authorId?: string;
+    content?: string;
+    has?: 'link' | 'file';
+    channelId?: string;
+    offset?: number;
+  }
+): Promise<{ total_results: number; messages: DiscordMessage[] } | null> {
+  try {
+    const url = new URL(`${DISCORD_API}/guilds/${guildId}/messages/search`);
+    if (options.authorId) url.searchParams.set('author_id', options.authorId);
+    if (options.content) url.searchParams.set('content', options.content);
+    if (options.has) url.searchParams.set('has', options.has);
+    if (options.channelId) url.searchParams.set('channel_id', options.channelId);
+    if (options.offset) url.searchParams.set('offset', String(options.offset));
+
+    const response = await fetch(url.toString(), {
+      headers: getHeaders(token),
+    });
+
+    if (response.status === 202 || !response.ok) {
+      // 202 = Serveur en cours d'indexation ou non indexé
+      return null;
+    }
+
+    const data = await response.json();
+    const foundMessages: DiscordMessage[] = [];
+
+    if (Array.isArray(data.messages)) {
+      for (const group of data.messages) {
+        if (Array.isArray(group) && group.length > 0) {
+          const hit =
+            group.find((m: any) => (options.authorId ? m.author?.id === options.authorId : true)) ??
+            group[0];
+          if (hit) foundMessages.push(hit);
+        }
+      }
+    }
+
+    return {
+      total_results: data.total_results ?? foundMessages.length,
+      messages: foundMessages,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function throwDiscordError(status: number, context: string): never {
   const error = Object.assign(new Error(`Discord API ${context} → HTTP ${status}`), {
     status,
