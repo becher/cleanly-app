@@ -1086,73 +1086,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     </View>
                   </View>
 
-                  {/* 4. Vitesse de suppression (Anti-ban) — Liste déroulante compacte */}
-                  <View style={styles.filterCard}>
-                    <View style={styles.filterHeaderRow}>
-                      <Ionicons name="flash-outline" size={18} color="#5865F2" style={{ marginRight: 8 }} />
-                      <Text style={styles.filterLabel}>Vitesse & Protection Anti-Ban</Text>
-                    </View>
-
-                    {/* Bouton déroulant compact */}
-                    <TouchableOpacity
-                      style={[styles.dropdownBtn, isSpeedDropdownOpen && styles.dropdownBtnActive]}
-                      onPress={() => setIsSpeedDropdownOpen(!isSpeedDropdownOpen)}
-                      activeOpacity={0.8}
-                    >
-                      <View style={styles.dropdownLeft}>
-                        <View style={[styles.dropdownIconCircle, { backgroundColor: '#5865F215' }]}>
-                          <Ionicons name="speedometer-outline" size={16} color="#5865F2" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.dropdownValue}>
-                            {(SPEED_OPTIONS.find((o) => o.ms === speedDelayMs) ?? SPEED_OPTIONS[0]).title}
-                          </Text>
-                          <Text style={styles.dropdownDesc} numberOfLines={1}>
-                            {(SPEED_OPTIONS.find((o) => o.ms === speedDelayMs) ?? SPEED_OPTIONS[0]).desc}
-                          </Text>
-                        </View>
-                      </View>
-                      <Ionicons
-                        name={isSpeedDropdownOpen ? 'chevron-up' : 'chevron-down'}
-                        size={20}
-                        color={theme.text.secondary}
-                      />
-                    </TouchableOpacity>
-
-                    {/* Menu déroulant dépliable */}
-                    {isSpeedDropdownOpen && (
-                      <View style={styles.dropdownMenu}>
-                        {SPEED_OPTIONS.map((opt, idx) => {
-                          const isSelected = speedDelayMs === opt.ms;
-                          return (
-                            <TouchableOpacity
-                              key={opt.ms}
-                              style={[
-                                styles.dropdownItem,
-                                isSelected && styles.dropdownItemSelected,
-                                idx < SPEED_OPTIONS.length - 1 && styles.dropdownItemBorder,
-                              ]}
-                              onPress={() => {
-                                setSpeedDelayMs(opt.ms);
-                                setIsSpeedDropdownOpen(false);
-                              }}
-                              activeOpacity={0.7}
-                            >
-                              <View style={{ flex: 1 }}>
-                                <Text style={[styles.dropdownItemTitle, isSelected && styles.dropdownItemTitleSelected]}>
-                                  {opt.title}
-                                </Text>
-                                <Text style={styles.dropdownItemDesc}>{opt.desc}</Text>
-                              </View>
-                              {isSelected && <Ionicons name="checkmark-circle" size={20} color="#5865F2" />}
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    )}
-                  </View>
-
-                  <View style={{ height: 80 }} />
+                  <View style={{ height: 40 }} />
                 </ScrollView>
 
                 {/* Footer Scan */}
@@ -1259,8 +1193,76 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                   <View style={{ height: 80 }} />
                 </ScrollView>
 
-                {/* Footer suppression */}
-                <View style={styles.bottomBar}>
+                {/* Footer suppression avec choix de la méthode anti-ban */}
+                <View style={styles.previewBottomBar}>
+                  {/* Sélecteur de méthode de suppression */}
+                  <View style={styles.speedSelectorBox}>
+                    <View style={styles.speedSelectorHeader}>
+                      <Ionicons name="shield-checkmark-outline" size={15} color="#5865F2" style={{ marginRight: 6 }} />
+                      <Text style={styles.speedSelectorLabel}>Méthode de suppression</Text>
+                      <View style={{ flex: 1 }} />
+                      <Text style={styles.speedEstimationText}>
+                        ~{estimatedSeconds}s estimées
+                      </Text>
+                    </View>
+
+                    {/* Bouton déroulant compact */}
+                    <TouchableOpacity
+                      style={[styles.dropdownBtn, isSpeedDropdownOpen && styles.dropdownBtnActive, { marginTop: 6, paddingVertical: 8 }]}
+                      onPress={() => setIsSpeedDropdownOpen(!isSpeedDropdownOpen)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.dropdownLeft}>
+                        <View style={[styles.dropdownIconCircle, { backgroundColor: '#5865F215', width: 28, height: 28, borderRadius: 14 }]}>
+                          <Ionicons name="speedometer-outline" size={14} color="#5865F2" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.dropdownValue, { fontSize: 13 }]}>
+                            {(SPEED_OPTIONS.find((o) => o.ms === speedDelayMs) ?? SPEED_OPTIONS[0]).title}
+                          </Text>
+                        </View>
+                      </View>
+                      <Ionicons
+                        name={isSpeedDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                        size={18}
+                        color={theme.text.secondary}
+                      />
+                    </TouchableOpacity>
+
+                    {/* Menu déroulant dépliable */}
+                    {isSpeedDropdownOpen && (
+                      <View style={styles.dropdownMenu}>
+                        {SPEED_OPTIONS.map((opt, idx) => {
+                          const isSelected = speedDelayMs === opt.ms;
+                          return (
+                            <TouchableOpacity
+                              key={opt.ms}
+                              style={[
+                                styles.dropdownItem,
+                                isSelected && styles.dropdownItemSelected,
+                                idx < SPEED_OPTIONS.length - 1 && styles.dropdownItemBorder,
+                              ]}
+                              onPress={() => {
+                                setSpeedDelayMs(opt.ms);
+                                setIsSpeedDropdownOpen(false);
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              <View style={{ flex: 1 }}>
+                                <Text style={[styles.dropdownItemTitle, isSelected && styles.dropdownItemTitleSelected]}>
+                                  {opt.title}
+                                </Text>
+                                <Text style={styles.dropdownItemDesc}>{opt.desc}</Text>
+                              </View>
+                              {isSelected && <Ionicons name="checkmark-circle" size={18} color="#5865F2" />}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Bouton d'action final */}
                   <TouchableOpacity
                     style={[styles.deleteBtn, selectedMessageIds.size === 0 && { opacity: 0.5 }]}
                     onPress={handleConfirmDeletion}
@@ -1269,7 +1271,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                   >
                     <Ionicons name="trash" size={20} color="#FFF" style={{ marginRight: 8 }} />
                     <Text style={styles.deleteBtnText}>
-                      Supprimer définitivement {selectedMessageIds.size} message(s)
+                      Supprimer {selectedMessageIds.size} message{selectedMessageIds.size > 1 ? 's' : ''}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1811,6 +1813,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderTopWidth: 1,
     borderTopColor: theme.border.subtle,
+  },
+  previewBottomBar: {
+    padding: 14,
+    backgroundColor: '#FFF',
+    borderTopWidth: 1,
+    borderTopColor: theme.border.subtle,
+    gap: 10,
+  },
+  speedSelectorBox: {
+    backgroundColor: theme.bg.raised,
+    padding: 10,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+  },
+  speedSelectorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  speedSelectorLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.text.primary,
+  },
+  speedEstimationText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.accent.amber,
   },
   primaryBtn: {
     flexDirection: 'row',
