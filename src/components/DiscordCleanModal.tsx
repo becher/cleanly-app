@@ -15,6 +15,7 @@ import {
   Alert,
   Switch,
   BackHandler,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -48,6 +49,11 @@ type Step =
   | 'preview_messages'
   | 'deleting'
   | 'complete';
+
+function getGuildIconUrl(guildId?: string, iconHash?: string | null): string | null {
+  if (!guildId || !iconHash) return null;
+  return `https://cdn.discordapp.com/icons/${guildId}/${iconHash}.png?size=128`;
+}
 
 const DATE_FILTER_OPTIONS = [
   {
@@ -267,6 +273,15 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     setSelectedChannelIds(new Set());
   };
 
+  const isAllChannelsSelected = channels.length > 0 && selectedChannelIds.size === channels.length;
+  const toggleAllChannels = () => {
+    if (isAllChannelsSelected) {
+      setSelectedChannelIds(new Set());
+    } else {
+      setSelectedChannelIds(new Set(channels.map((c) => c.id)));
+    }
+  };
+
   // 3. Scanner les messages sur les salons sélectionnés (Optimisé & Parallélisé)
   const handleStartScan = async () => {
     if (selectedChannelIds.size === 0) {
@@ -408,6 +423,16 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
 
   const deselectAllMessages = () => {
     setSelectedMessageIds(new Set());
+  };
+
+  const isAllMessagesSelected =
+    scannedMessages.length > 0 && selectedMessageIds.size === scannedMessages.length;
+  const toggleAllMessages = () => {
+    if (isAllMessagesSelected) {
+      setSelectedMessageIds(new Set());
+    } else {
+      setSelectedMessageIds(new Set(scannedMessages.map((m) => m.id)));
+    }
   };
 
   // 4. Lancer la suppression
@@ -600,9 +625,24 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>Nettoyage Discord</Text>
             {selectedGuild && (
-              <Text style={styles.headerSub} numberOfLines={1}>
-                {selectedGuild.name}
-              </Text>
+              <View style={styles.headerGuildRow}>
+                {getGuildIconUrl(selectedGuild.id, selectedGuild.icon) ? (
+                  <Image
+                    source={{ uri: getGuildIconUrl(selectedGuild.id, selectedGuild.icon)! }}
+                    style={styles.headerGuildIcon}
+                  />
+                ) : (
+                  <Ionicons
+                    name={selectedGuild.id === 'dms' ? 'chatbubbles' : 'server-outline'}
+                    size={13}
+                    color="#5865F2"
+                    style={{ marginRight: 4 }}
+                  />
+                )}
+                <Text style={styles.headerSub} numberOfLines={1}>
+                  {selectedGuild.name}
+                </Text>
+              </View>
             )}
           </View>
 
@@ -696,9 +736,18 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                       onPress={() => handleSelectGuild(g)}
                       activeOpacity={0.7}
                     >
-                      <View style={styles.avatarBox}>
-                        <FontAwesome5 name="discord" size={20} color="#FFF" />
-                      </View>
+                      {getGuildIconUrl(g.id, g.icon) ? (
+                        <Image
+                          source={{ uri: getGuildIconUrl(g.id, g.icon)! }}
+                          style={styles.guildIconImg}
+                        />
+                      ) : (
+                        <View style={[styles.avatarBox, { backgroundColor: '#5865F2' }]}>
+                          <Text style={styles.guildInitials}>
+                            {g.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
                       <View style={{ flex: 1 }}>
                         <Text style={styles.itemTitle}>{g.name}</Text>
                         <Text style={styles.itemSub}>Appuyer pour voir les salons</Text>
@@ -715,22 +764,91 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
             {step === 'select_channels' && (
               <View style={{ flex: 1 }}>
                 <ScrollView style={styles.pageContent} showsVerticalScrollIndicator={false}>
+                  {/* Carte Récapitulative du Serveur avec Logo */}
+                  {selectedGuild && (
+                    <View style={styles.serverCardHeader}>
+                      {getGuildIconUrl(selectedGuild.id, selectedGuild.icon) ? (
+                        <Image
+                          source={{ uri: getGuildIconUrl(selectedGuild.id, selectedGuild.icon)! }}
+                          style={styles.serverCardImg}
+                        />
+                      ) : (
+                        <View style={[styles.avatarBox, { backgroundColor: '#5865F2' }]}>
+                          {selectedGuild.id === 'dms' ? (
+                            <Ionicons name="chatbubbles" size={20} color="#FFF" />
+                          ) : (
+                            <Text style={styles.guildInitials}>
+                              {selectedGuild.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+                            </Text>
+                          )}
+                        </View>
+                      )}
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={styles.serverCardTitle} numberOfLines={1}>
+                          {selectedGuild.name}
+                        </Text>
+                        <Text style={styles.serverCardSub}>
+                          {channels.length} salon{channels.length > 1 ? 's' : ''} disponible{channels.length > 1 ? 's' : ''}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
                   <Text style={styles.sectionTitle}>2. Sélectionnez les salons</Text>
                   <Text style={styles.sectionDesc}>
-                    Cochez les salons à scanner ({selectedChannelIds.size} sélectionné(s)).
+                    Cochez les salons à scanner pour vos messages.
                   </Text>
 
-                  {/* Actions rapides Tout cocher / décocher */}
-                  <View style={styles.actionRow}>
-                    <TouchableOpacity style={styles.textBtn} onPress={selectAllChannels}>
-                      <Ionicons name="checkmark-done" size={16} color="#5865F2" style={{ marginRight: 4 }} />
-                      <Text style={styles.textBtnText}>Tout cocher</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.textBtn} onPress={deselectAllChannels}>
-                      <Ionicons name="close-outline" size={16} color={theme.text.muted} style={{ marginRight: 4 }} />
-                      <Text style={[styles.textBtnText, { color: theme.text.muted }]}>Tout décocher</Text>
-                    </TouchableOpacity>
-                  </View>
+                  {/* Vraie Checkbox interactive Tout cocher / Tout décocher */}
+                  <TouchableOpacity
+                    style={[
+                      styles.selectAllCheckboxBar,
+                      isAllChannelsSelected && styles.selectAllCheckboxBarActive,
+                    ]}
+                    onPress={toggleAllChannels}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={
+                        isAllChannelsSelected
+                          ? 'checkbox'
+                          : selectedChannelIds.size > 0
+                          ? 'remove-circle'
+                          : 'square-outline'
+                      }
+                      size={22}
+                      color={
+                        isAllChannelsSelected || selectedChannelIds.size > 0
+                          ? '#5865F2'
+                          : theme.text.muted
+                      }
+                      style={{ marginRight: 10 }}
+                    />
+                    <Text
+                      style={[
+                        styles.selectAllCheckboxText,
+                        isAllChannelsSelected && styles.selectAllCheckboxTextActive,
+                      ]}
+                    >
+                      {isAllChannelsSelected ? 'Tous les salons cochés' : 'Tout cocher'}
+                    </Text>
+                    <View style={{ flex: 1 }} />
+                    <View
+                      style={[
+                        styles.countBadge,
+                        isAllChannelsSelected && styles.countBadgeActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.countBadgeText,
+                          isAllChannelsSelected && styles.countBadgeTextActive,
+                        ]}
+                      >
+                        {selectedChannelIds.size} / {channels.length}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
 
                   {/* Barre de recherche de salons */}
                   <View style={styles.searchBar}>
@@ -1031,14 +1149,39 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                       {selectedMessageIds.size} sélectionné(s) • ~{estimatedSeconds}s de suppression
                     </Text>
                   </View>
-                  <View style={styles.actionRowInline}>
-                    <TouchableOpacity onPress={selectAllMessages} style={{ marginRight: 12 }}>
-                      <Text style={styles.smallActionText}>Tout</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={deselectAllMessages}>
-                      <Text style={[styles.smallActionText, { color: theme.text.muted }]}>Rien</Text>
-                    </TouchableOpacity>
-                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.previewCheckboxBtn,
+                      isAllMessagesSelected && styles.previewCheckboxBtnActive,
+                    ]}
+                    onPress={toggleAllMessages}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={
+                        isAllMessagesSelected
+                          ? 'checkbox'
+                          : selectedMessageIds.size > 0
+                          ? 'remove-circle'
+                          : 'square-outline'
+                      }
+                      size={20}
+                      color={
+                        isAllMessagesSelected || selectedMessageIds.size > 0
+                          ? theme.accent.red
+                          : theme.text.muted
+                      }
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text
+                      style={[
+                        styles.previewCheckboxText,
+                        isAllMessagesSelected && styles.previewCheckboxTextActive,
+                      ]}
+                    >
+                      {isAllMessagesSelected ? 'Tout coché' : 'Tout cocher'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
 
                 <ScrollView style={styles.pageContent} showsVerticalScrollIndicator={false}>
@@ -1272,6 +1415,121 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+  },
+  guildIconImg: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  guildInitials: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  headerGuildRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+    maxWidth: 220,
+  },
+  headerGuildIcon: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    marginRight: 5,
+  },
+  serverCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: theme.radius.md,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#5865F230',
+    backgroundColor: '#5865F208',
+  },
+  serverCardImg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  serverCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.text.primary,
+  },
+  serverCardSub: {
+    fontSize: 12,
+    color: '#5865F2',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  selectAllCheckboxBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+    marginBottom: 12,
+  },
+  selectAllCheckboxBarActive: {
+    borderColor: '#5865F2',
+    backgroundColor: '#5865F20A',
+  },
+  selectAllCheckboxText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.text.secondary,
+  },
+  selectAllCheckboxTextActive: {
+    color: '#5865F2',
+    fontWeight: '700',
+  },
+  countBadge: {
+    backgroundColor: theme.bg.raised,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.full,
+  },
+  countBadgeActive: {
+    backgroundColor: '#5865F220',
+  },
+  countBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.text.muted,
+  },
+  countBadgeTextActive: {
+    color: '#5865F2',
+    fontWeight: '700',
+  },
+  previewCheckboxBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: theme.radius.sm,
+    backgroundColor: theme.bg.raised,
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+  },
+  previewCheckboxBtnActive: {
+    backgroundColor: '#EF444415',
+    borderColor: '#EF444440',
+  },
+  previewCheckboxText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.text.secondary,
+  },
+  previewCheckboxTextActive: {
+    color: theme.accent.red,
+    fontWeight: '700',
   },
   itemTitle: {
     fontSize: 15,
