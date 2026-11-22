@@ -247,6 +247,17 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     }
   };
 
+  // Choisir Tous les Serveurs (Nettoyage Global en 1 seule fois)
+  const handleSelectAllGuilds = () => {
+    setSelectedGuild({
+      id: 'all_guilds',
+      name: 'Tous les Serveurs (Global)',
+    });
+    setChannels([]);
+    setSelectedChannelIds(new Set());
+    setStep('filter_options'); // Passer directement aux filtres !
+  };
+
   // Filtrer les salons selon la recherche
   const filteredChannels = useMemo(() => {
     if (!channelSearch.trim()) return channels;
@@ -282,9 +293,9 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     }
   };
 
-  // 3. Scanner les messages sur les salons sélectionnés (Optimisé & Parallélisé)
+  // 3. Scanner les messages sur les salons sélectionnés ou tous les serveurs (Optimisé & Parallélisé)
   const handleStartScan = async () => {
-    if (selectedChannelIds.size === 0) {
+    if (selectedGuild?.id !== 'all_guilds' && selectedChannelIds.size === 0) {
       Alert.alert('Attention', 'Veuillez sélectionner au moins un salon.');
       return;
     }
@@ -322,71 +333,113 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     };
 
     try {
-      // Étape A : Tentative Fast Search API si on est sur un serveur Discord
-      let fastSearchSuccess = false;
-      if (selectedGuild && selectedGuild.id !== 'dms') {
-        try {
-          const searchRes = await searchDiscordGuildMessages(token, selectedGuild.id, {
-            authorId: userId,
-            content: filterKeyword.trim() || undefined,
-            has: onlyWithAttachments ? 'file' : onlyWithLinks ? 'link' : undefined,
-          });
+      // CAS 1 : Nettoyage global sur TOUS les serveurs Discord
+      if (selectedGuild?.id === 'all_guilds') {
+        setLoadingText(`Scan global sur ${guilds.length} serveurs...`);
+        const BATCH_SIZE = 3;
+        let processedGuilds = 0;
 
-          if (searchRes && Array.isArray(searchRes.messages) && searchRes.messages.length > 0) {
-            for (const msg of searchRes.messages) {
-              // Vérifier si le message appartient à l'un des salons sélectionnés
-              if (selectedChannelIds.has(msg.channel_id)) {
-                if (matchesFilters(msg)) {
-                  const channelObj = channels.find((c) => c.id === msg.channel_id);
-                  allFound.push({
-                    ...msg,
-                    channel_name: channelObj ? channelObj.name : msg.channel_id,
-                  });
-                }
-              }
-            }
-            fastSearchSuccess = true;
-          }
-        } catch {
-          // Fallback sur le scan direct des salons
-        }
-      }
-
-      // Étape B : Si Fast Search non disponible ou DMs, scan parallèle par lots (Batch de 4 salons)
-      if (!fastSearchSuccess) {
-        const channelList = Array.from(selectedChannelIds);
-        const BATCH_SIZE = 4;
-        let processedCount = 0;
-
-        for (let i = 0; i < channelList.length; i += BATCH_SIZE) {
+        for (let i = 0; i < guilds.length; i += BATCH_SIZE) {
           if (scanAbortedRef.current) break;
+          const batch = guilds.slice(i, i + BATCH_SIZE);
 
-          const batch = channelList.slice(i, i + BATCH_SIZE);
           await Promise.all(
-            batch.map(async (channelId) => {
-              const channelObj = channels.find((c) => c.id === channelId);
-              const channelName = channelObj ? channelObj.name : channelId;
-
+            batch.map(async (g) => {
               try {
-                const messages = await getDiscordMessages(token, channelId);
-                for (const msg of messages) {
-                  if (matchesFilters(msg)) {
-                    allFound.push({
-                      ...msg,
-                      channel_name: channelName,
-                    });
+                const searchRes = await searchDiscordGuildMessages(token, g.id, {
+                  authorId: userId,
+                  content: filterKeyword.trim() || undefined,
+                  has: onlyWithAttachments ? 'file' : onlyWithLinks ? 'link' : undefined,
+                });
+
+                if (searchRes && Array.isArray(searchRes.messages)) {
+                  for (const msg of searchRes.messages) {
+                    if (matchesFilters(msg)) {
+                      allFound.push({
+                        ...msg,
+                        channel_name: g.name,
+                      });
+                    }
                   }
                 }
               } catch (e) {
-                console.warn(`Erreur scan salon ${channelId}:`, e);
+                console.warn(`Erreur scan serveur ${g.name}:`, e);
               }
             })
           );
 
-          processedCount += batch.length;
+          processedGuilds += batch.length;
           setLoadingText(
-            `Analyse : ${Math.min(processedCount, channelList.length)}/${channelList.length} salons • ${allFound.length} message(s) trouvé(s)`
+            `Analyse : ${Math.min(processedGuilds, guilds.length)}/${guilds.length} serveurs • ${allFound.length} message(s) trouvé(s)`
           );
+        }
+      } else {
+        // CAS 2 : Serveur unique ou DMs
+        let fastSearchSuccess = false;
+        if (selectedGuild && selectedGuild.id !== 'dms') {
+          try {
+            const searchRes = await searchDiscordGuildMessages(token, selectedGuild.id, {
+              authorId: userId,
+              content: filterKeyword.trim() || undefined,
+              has: onlyWithAttachments ? 'file' : onlyWithLinks ? 'link' : undefined,
+            });
+
+            if (searchRes && Array.isArray(searchRes.messages) && searchRes.messages.length > 0) {
+              for (const msg of searchRes.messages) {
+                // Vérifier si le message appartient à l'un des salons sélectionnés
+                if (selectedChannelIds.has(msg.channel_id)) {
+                  if (matchesFilters(msg)) {
+                    const channelObj = channels.find((c) => c.id === msg.channel_id);
+                    allFound.push({
+                      ...msg,
+                      channel_name: channelObj ? channelObj.name : msg.channel_id,
+                    });
+                  }
+                }
+              }
+              fastSearchSuccess = true;
+            }
+          } catch {
+            // Fallback sur le scan direct des salons
+          }
+        }
+
+        // Étape B : Si Fast Search non disponible ou DMs, scan parallèle par lots (Batch de 4 salons)
+        if (!fastSearchSuccess) {
+          const channelList = Array.from(selectedChannelIds);
+          const BATCH_SIZE = 4;
+          let processedCount = 0;
+
+          for (let i = 0; i < channelList.length; i += BATCH_SIZE) {
+            if (scanAbortedRef.current) break;
+
+            const batch = channelList.slice(i, i + BATCH_SIZE);
+            await Promise.all(
+              batch.map(async (channelId) => {
+                const channelObj = channels.find((c) => c.id === channelId);
+                const channelName = channelObj ? channelObj.name : channelId;
+
+                try {
+                  const messages = await getDiscordMessages(token, channelId);
+                  for (const msg of messages) {
+                    if (matchesFilters(msg)) {
+                      allFound.push({
+                        ...msg,
+                        channel_name: channelName,
+                      });
+                    }
+                  }
+                } catch (e) {
+                  console.warn(`Erreur scan salon ${channelId}:`, e);
+                }
+              })
+            );
+
+            processedCount += batch.length;
+            setLoadingText(
+              `Analyse : ${Math.min(processedCount, channelList.length)}/${channelList.length} salons • ${allFound.length} message(s) trouvé(s)`
+            );
+          }
         }
       }
 
@@ -456,7 +509,9 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     if (deleted === 0 && total === 0) return;
     try {
       const targetName =
-        selectedGuild?.id === 'dms'
+        selectedGuild?.id === 'all_guilds'
+          ? `Tous les serveurs (${guilds.length} serveurs)`
+          : selectedGuild?.id === 'dms'
           ? 'Messages Privés (DMs)'
           : `${selectedGuild?.name ?? 'Discord'} (${selectedChannelIds.size} salon${selectedChannelIds.size > 1 ? 's' : ''})`;
 
@@ -576,7 +631,11 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     }
 
     if (step === 'filter_options') {
-      setStep('select_channels');
+      if (selectedGuild?.id === 'all_guilds') {
+        setStep('select_guild');
+      } else {
+        setStep('select_channels');
+      }
       return true;
     }
 
@@ -602,6 +661,9 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
   // Sous-titre du header dynamique avec alignement du serveur et salon(s) sélectionné(s)
   const headerSubtitle = useMemo(() => {
     if (!selectedGuild) return null;
+    if (selectedGuild.id === 'all_guilds') {
+      return `Scan Global • ${guilds.length} serveurs`;
+    }
     if (selectedGuild.id === 'dms') {
       if (selectedChannelIds.size === 1) {
         const id = Array.from(selectedChannelIds)[0];
@@ -623,7 +685,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
       return `${selectedGuild.name} • ${selectedChannelIds.size} salons`;
     }
     return selectedGuild.name;
-  }, [selectedGuild, selectedChannelIds, channels]);
+  }, [selectedGuild, selectedChannelIds, channels, guilds]);
 
   // Calculs dynamiques
   const targetCount = selectedMessageIds.size;
@@ -654,7 +716,9 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
             </Text>
             {headerSubtitle && (
               <View style={styles.headerGuildRow}>
-                {getGuildIconUrl(selectedGuild?.id, selectedGuild?.icon) ? (
+                {selectedGuild?.id === 'all_guilds' ? (
+                  <Ionicons name="globe-outline" size={13} color="#8B5CF6" style={{ marginRight: 4 }} />
+                ) : getGuildIconUrl(selectedGuild?.id, selectedGuild?.icon) ? (
                   <Image
                     source={{ uri: getGuildIconUrl(selectedGuild?.id, selectedGuild?.icon)! }}
                     style={styles.headerGuildIcon}
@@ -710,10 +774,35 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
               <ScrollView style={styles.pageContent} showsVerticalScrollIndicator={false}>
                 <Text style={styles.sectionTitle}>1. Où voulez-vous nettoyer ?</Text>
                 <Text style={styles.sectionDesc}>
-                  Choisissez vos messages privés ou un serveur Discord.
+                  Choisissez un serveur, vos messages privés ou un scan global.
                 </Text>
 
-                {/* Option Messages Privés (DMs) */}
+                {/* Option 1 : TOUS LES SERVEURS (Scan Global en 1 clic) */}
+                <TouchableOpacity
+                  style={[styles.itemCard, styles.globalCard]}
+                  onPress={handleSelectAllGuilds}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.avatarBox, { backgroundColor: '#8B5CF6' }]}>
+                    <Ionicons name="globe-outline" size={22} color="#FFF" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={[styles.itemTitle, { color: '#8B5CF6', fontWeight: '800' }]}>
+                        Tous les Serveurs (Global)
+                      </Text>
+                      <View style={styles.fastPill}>
+                        <Text style={styles.fastPillText}>RAPIDE</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.itemSub}>
+                      Rechercher et nettoyer sur l’ensemble de vos {guilds.length} serveurs en une seule fois
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                </TouchableOpacity>
+
+                {/* Option 2 : Messages Privés (DMs) */}
                 <TouchableOpacity
                   style={[styles.itemCard, styles.dmCard]}
                   onPress={handleSelectDMs}
@@ -1444,6 +1533,23 @@ const styles = StyleSheet.create({
   dmCard: {
     borderColor: '#5865F2',
     backgroundColor: '#5865F208',
+  },
+  globalCard: {
+    borderColor: '#8B5CF680',
+    backgroundColor: '#8B5CF60C',
+    borderWidth: 1.5,
+  },
+  fastPill: {
+    backgroundColor: '#8B5CF625',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  fastPillText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#8B5CF6',
+    letterSpacing: 0.5,
   },
   avatarBox: {
     width: 40,
