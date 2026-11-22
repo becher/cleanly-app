@@ -599,6 +599,32 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     return () => sub.remove();
   }, [visible, step, isDateDropdownOpen, isSpeedDropdownOpen]);
 
+  // Sous-titre du header dynamique avec alignement du serveur et salon(s) sélectionné(s)
+  const headerSubtitle = useMemo(() => {
+    if (!selectedGuild) return null;
+    if (selectedGuild.id === 'dms') {
+      if (selectedChannelIds.size === 1) {
+        const id = Array.from(selectedChannelIds)[0];
+        const dm = channels.find((c) => c.id === id);
+        return dm ? `DMs • ${dm.name}` : 'Messages Privés (DMs)';
+      }
+      if (selectedChannelIds.size > 1) {
+        return `DMs • ${selectedChannelIds.size} conversations`;
+      }
+      return 'Messages Privés (DMs)';
+    }
+
+    if (selectedChannelIds.size === 1) {
+      const id = Array.from(selectedChannelIds)[0];
+      const ch = channels.find((c) => c.id === id);
+      return `${selectedGuild.name} • #${ch?.name ?? 'salon'}`;
+    }
+    if (selectedChannelIds.size > 1) {
+      return `${selectedGuild.name} • ${selectedChannelIds.size} salons`;
+    }
+    return selectedGuild.name;
+  }, [selectedGuild, selectedChannelIds, channels]);
+
   // Calculs dynamiques
   const targetCount = selectedMessageIds.size;
   const percent = targetCount > 0 ? Math.round((deletedCount / targetCount) * 100) : 0;
@@ -623,30 +649,32 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Nettoyage Discord</Text>
-            {selectedGuild && (
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              Nettoyage Discord
+            </Text>
+            {headerSubtitle && (
               <View style={styles.headerGuildRow}>
-                {getGuildIconUrl(selectedGuild.id, selectedGuild.icon) ? (
+                {getGuildIconUrl(selectedGuild?.id, selectedGuild?.icon) ? (
                   <Image
-                    source={{ uri: getGuildIconUrl(selectedGuild.id, selectedGuild.icon)! }}
+                    source={{ uri: getGuildIconUrl(selectedGuild?.id, selectedGuild?.icon)! }}
                     style={styles.headerGuildIcon}
                   />
                 ) : (
                   <Ionicons
-                    name={selectedGuild.id === 'dms' ? 'chatbubbles' : 'server-outline'}
+                    name={selectedGuild?.id === 'dms' ? 'chatbubbles' : 'server-outline'}
                     size={13}
                     color="#5865F2"
                     style={{ marginRight: 4 }}
                   />
                 )}
                 <Text style={styles.headerSub} numberOfLines={1}>
-                  {selectedGuild.name}
+                  {headerSubtitle}
                 </Text>
               </View>
             )}
           </View>
 
-          <View style={{ width: 32 }} />
+          <View style={styles.headerRightPlaceholder} />
         </View>
 
         {/* Loader */}
@@ -1323,29 +1351,37 @@ const styles = StyleSheet.create({
     backgroundColor: theme.bg.base,
   },
   header: {
-    height: 56,
+    height: 58,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
     borderBottomColor: theme.border.subtle,
   },
   backBtn: {
-    padding: 6,
-    marginRight: 8,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
   },
   headerCenter: {
     flex: 1,
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: theme.text.primary,
   },
   headerSub: {
     fontSize: 12,
     color: theme.text.secondary,
+    flexShrink: 1,
+  },
+  headerRightPlaceholder: {
+    width: 36,
   },
   pageContent: {
     padding: 16,
@@ -1430,9 +1466,7 @@ const styles = StyleSheet.create({
   headerGuildRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-    maxWidth: 220,
+    marginTop: 1,
   },
   headerGuildIcon: {
     width: 14,
