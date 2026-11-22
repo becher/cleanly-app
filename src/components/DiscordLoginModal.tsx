@@ -1,7 +1,7 @@
 // Modale de connexion Discord avec interception automatique du User Token
 // Permet d'obtenir les droits complets pour lister les salons et supprimer les messages
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -10,9 +10,10 @@ import {
   StyleSheet,
   ActivityIndicator,
   StatusBar,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
+import { WebView, type WebViewNavigation } from 'react-native-webview';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { theme } from '../constants/theme';
 
@@ -69,8 +70,29 @@ const INJECTED_INTERCEPTOR = `
 true;
 `;
 
-export function DiscordLoginModal({ visible, onSuccess, onError, onClose }: Props) {
+export function DiscordLoginModal({ visible, onSuccess, onError, onClose }: Props): React.JSX.Element | null {
   const [loading, setLoading] = useState(true);
+  const [canGoBack, setCanGoBack] = useState(false);
+  const webViewRef = useRef<any>(null);
+
+  // Gestion du bouton retour physique Android (Hardware Back Button)
+  useEffect(() => {
+    if (!visible) return;
+
+    const onBackPress = () => {
+      // 1. Si la WebView peut reculer dans son historique web
+      if (canGoBack && webViewRef.current) {
+        webViewRef.current.goBack();
+        return true; // Consommer l'événement (empêche React Navigation de sauter à l'accueil)
+      }
+      // 2. Sinon, fermer la modal proprement
+      onClose();
+      return true; // Consommer l'événement (empêche React Navigation de sauter à l'accueil)
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [visible, canGoBack, onClose]);
 
   if (!visible) return null;
 
@@ -86,8 +108,16 @@ export function DiscordLoginModal({ visible, onSuccess, onError, onClose }: Prop
     }
   };
 
+  const handleModalClose = () => {
+    if (canGoBack && webViewRef.current) {
+      webViewRef.current.goBack();
+    } else {
+      onClose();
+    }
+  };
+
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" onRequestClose={handleModalClose}>
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" />
 
@@ -112,11 +142,13 @@ export function DiscordLoginModal({ visible, onSuccess, onError, onClose }: Prop
 
         {/* WebView Discord */}
         <WebView
+          ref={webViewRef}
           source={{ uri: 'https://discord.com/login' }}
           injectedJavaScriptBeforeContentLoaded={INJECTED_INTERCEPTOR}
           onMessage={handleMessage}
           onLoadStart={() => setLoading(true)}
           onLoadEnd={() => setLoading(false)}
+          onNavigationStateChange={(navState: WebViewNavigation): void => setCanGoBack(navState.canGoBack)}
           userAgent="Mozilla/5.0 (Linux; Android 14; 22101316G) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
           domStorageEnabled={true}
           javaScriptEnabled={true}

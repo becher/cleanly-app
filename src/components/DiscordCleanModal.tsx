@@ -14,6 +14,7 @@ import {
   TextInput,
   Alert,
   Switch,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -426,6 +427,68 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     ]);
   };
 
+  // Gestion du retour physique Android (Hardware Back Button) et bouton retour header
+  const handleBackAction = () => {
+    // 1. Si un menu déroulant est ouvert, le refermer en priorité
+    if (isDateDropdownOpen) {
+      setIsDateDropdownOpen(false);
+      return true;
+    }
+    if (isSpeedDropdownOpen) {
+      setIsSpeedDropdownOpen(false);
+      return true;
+    }
+
+    // 2. Si une suppression est en cours, confirmer avant d'interrompre
+    if (step === 'deleting') {
+      Alert.alert(
+        'Suppression en cours',
+        'Voulez-vous vraiment stopper le nettoyage et quitter ?',
+        [
+          { text: 'Continuer la suppression', style: 'cancel' },
+          {
+            text: 'Stopper et quitter',
+            style: 'destructive',
+            onPress: () => {
+              stopRef.current = true;
+              onClose();
+            },
+          },
+        ]
+      );
+      return true;
+    }
+
+    // 3. Navigation progressive étape par étape
+    if (step === 'preview_messages') {
+      setStep('filter_options');
+      return true;
+    }
+
+    if (step === 'filter_options') {
+      setStep('select_channels');
+      return true;
+    }
+
+    if (step === 'select_channels') {
+      setStep('select_guild');
+      return true;
+    }
+
+    if (step === 'select_guild' || step === 'complete') {
+      onClose();
+      return true;
+    }
+
+    return true; // Toujours consommer l'événement pour éviter de sauter vers l'accueil
+  };
+
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', handleBackAction);
+    return () => sub.remove();
+  }, [visible, step, isDateDropdownOpen, isSpeedDropdownOpen]);
+
   // Calculs dynamiques
   const targetCount = selectedMessageIds.size;
   const percent = targetCount > 0 ? Math.round((deletedCount / targetCount) * 100) : 0;
@@ -433,17 +496,12 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
   const estimatedSeconds = Math.ceil((remainingCount * speedDelayMs) / 1000);
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" onRequestClose={() => { handleBackAction(); }}>
       <SafeAreaView style={styles.container}>
         {/* Header Cleanly */}
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => {
-              if (step === 'select_guild' || step === 'complete') onClose();
-              else if (step === 'select_channels') setStep('select_guild');
-              else if (step === 'filter_options') setStep('select_channels');
-              else if (step === 'preview_messages') setStep('filter_options');
-            }}
+            onPress={handleBackAction}
             style={styles.backBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >

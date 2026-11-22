@@ -17,6 +17,7 @@ export function RootNavigator() {
 
   return (
     <Tab.Navigator
+      backBehavior="none"
       screenOptions={{
         headerStyle: {
           backgroundColor: theme.bg.surface,
