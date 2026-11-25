@@ -45,6 +45,12 @@ const FREQUENCIES: { id: 'daily' | 'weekly' | 'monthly'; label: string; icon: st
   { id: 'monthly', label: 'Mensuel', icon: 'time-outline' },
 ];
 
+const SCOPES: { id: 'all' | 'dms' | 'guilds'; title: string; desc: string; icon: string }[] = [
+  { id: 'all', title: 'Tout le compte (DMs + Serveurs)', desc: 'Nettoyage complet', icon: 'globe-outline' },
+  { id: 'dms', title: 'Messages Privés (DMs) seuls', desc: 'Ne touche pas aux serveurs', icon: 'chatbubbles-outline' },
+  { id: 'guilds', title: 'Serveurs uniquement', desc: 'Ne touche pas aux DMs', icon: 'server-outline' },
+];
+
 export function RetentionModal({ visible, onClose, onTriggerClean, embedded = false }: RetentionModalProps) {
   const accounts = useAuthStore((s) => s.accounts);
   const rules = useRetentionStore((s) => s.rules);
@@ -95,6 +101,43 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
       accountName: targetAccount.displayName || targetAccount.username,
     };
     await saveRule(updated);
+  };
+
+  const handleSaveAndSchedule = async () => {
+    const targetAccount = currentAccount || accounts[0];
+    if (!targetAccount) {
+      Alert.alert(
+        'Compte requis',
+        'Veuillez d’abord connecter un compte dans l’onglet Réseaux.'
+      );
+      return;
+    }
+
+    const intervalDays = activeRule.frequency === 'daily' ? 1 : activeRule.frequency === 'weekly' ? 7 : 30;
+    const updated: RetentionRule = {
+      ...activeRule,
+      enabled: true,
+      accountId: targetAccount.id,
+      platform: targetAccount.platform,
+      accountName: targetAccount.displayName || targetAccount.username,
+      nextRunAt: Date.now() + intervalDays * 24 * 3600 * 1000,
+    };
+
+    await saveRule(updated);
+
+    const freqLabel = activeRule.frequency === 'daily' ? 'quotidiennement' : activeRule.frequency === 'weekly' ? 'chaque semaine' : 'chaque mois';
+    const scopeLabel = activeRule.targetScope === 'dms' ? 'vos Messages Privés (DMs)' : activeRule.targetScope === 'guilds' ? 'vos serveurs' : 'l’ensemble de votre compte';
+
+    Alert.alert(
+      '✅ Planification activée !',
+      `Votre règle de rétention est enregistrée pour ${targetAccount.displayName || targetAccount.username}.\n\n• Délai : Plus de ${activeRule.retentionDays} jours\n• Périmètre : ${scopeLabel}\n• Fréquence : Vérifié ${freqLabel}\n\nCleanly surveillera votre historique et vous avertira automatiquement.`,
+      [
+        {
+          text: 'Compris',
+          onPress: () => onClose(),
+        },
+      ]
+    );
   };
 
   const handleImmediateClean = () => {
@@ -258,9 +301,45 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
           </View>
         </View>
 
-        {/* 3. Mode d'exécution */}
+        {/* 3. Périmètre ciblé (Où nettoyer ?) */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>3. Mode de purge</Text>
+          <Text style={styles.sectionTitle}>3. Périmètre ciblé (Où nettoyer ?)</Text>
+          <Text style={styles.sectionSubtitle}>
+            Choisissez les espaces où la purge automatique s'appliquera.
+          </Text>
+          <View style={styles.cardBox}>
+            {SCOPES.map((sc, sIdx) => {
+              const isSelected = (activeRule.targetScope ?? 'all') === sc.id;
+              return (
+                <React.Fragment key={sc.id}>
+                  {sIdx > 0 && <View style={styles.divider} />}
+                  <TouchableOpacity
+                    style={[styles.modeRow, isSelected && styles.modeRowActive]}
+                    onPress={() => handleUpdate({ targetScope: sc.id })}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={isSelected ? 'radio-button-on' : 'radio-button-off'}
+                      size={18}
+                      color="#5865F2"
+                      style={{ marginRight: 10 }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.modeTitle, isSelected && { color: '#5865F2', fontWeight: '700' }]}>
+                        {sc.title}
+                      </Text>
+                      <Text style={styles.modeSub}>{sc.desc}</Text>
+                    </View>
+                  </TouchableOpacity>
+                </React.Fragment>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* 4. Mode d'exécution */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>4. Mode d'exécution</Text>
           <View style={styles.cardBox}>
             <TouchableOpacity
               style={[
@@ -277,7 +356,7 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
                 style={{ marginRight: 10 }}
               />
               <View style={{ flex: 1 }}>
-                <Text style={styles.modeTitle}>Alerte intelligente avec confirmation</Text>
+                <Text style={styles.modeTitle}>Alerte intelligente avec confirmation (Recommandé)</Text>
                 <Text style={styles.modeSub}>
                   Cleanly vous notifie des messages expirés et vous demande confirmation en 1 clic.
                 </Text>
@@ -310,9 +389,9 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
           </View>
         </View>
 
-        {/* 4. Protections & Sécurité */}
+        {/* 5. Protections & Sécurité */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>4. Protections avancées</Text>
+          <Text style={styles.sectionTitle}>5. Protections avancées</Text>
           <View style={styles.cardBox}>
             <View style={styles.switchOptionRow}>
               <View style={{ flex: 1, marginRight: 8 }}>
@@ -346,16 +425,27 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
           </View>
         </View>
 
-        {/* Bouton d'action directe immédiate */}
+        {/* Boutons d'action : Sauvegarder la planification (Principal) + Test direct (Secondaire) */}
         <View style={styles.bottomSection}>
           <TouchableOpacity
-            style={styles.actionCleanNowBtn}
-            onPress={handleImmediateClean}
+            style={styles.saveAndScheduleBtn}
+            onPress={handleSaveAndSchedule}
             activeOpacity={0.85}
           >
-            <Ionicons name="flash" size={18} color="#FFF" style={{ marginRight: 8 }} />
-            <Text style={styles.actionCleanNowText}>
-              Purger les messages &gt; {activeRule.retentionDays} jours maintenant
+            <Ionicons name="shield-checkmark" size={20} color="#FFF" style={{ marginRight: 8 }} />
+            <Text style={styles.saveAndScheduleBtnText}>
+              Sauvegarder & Activer la planification
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCleanNowBtnOutline}
+            onPress={handleImmediateClean}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="flash-outline" size={16} color="#5865F2" style={{ marginRight: 6 }} />
+            <Text style={styles.actionCleanNowBtnOutlineText}>
+              Tester une purge manuelle tout de suite (Optionnel)
             </Text>
           </TouchableOpacity>
         </View>
@@ -609,7 +699,41 @@ const styles = StyleSheet.create({
     backgroundColor: theme.border.subtle,
   },
   bottomSection: {
-    marginTop: 8,
+    marginTop: 10,
+    gap: 10,
+  },
+  saveAndScheduleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10B981',
+    borderRadius: theme.radius.md,
+    paddingVertical: 14,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  saveAndScheduleBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  actionCleanNowBtnOutline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#5865F20D',
+    borderWidth: 1,
+    borderColor: '#5865F240',
+    borderRadius: theme.radius.md,
+    paddingVertical: 10,
+  },
+  actionCleanNowBtnOutlineText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#5865F2',
   },
   actionCleanNowBtn: {
     flexDirection: 'row',

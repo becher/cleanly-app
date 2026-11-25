@@ -78,7 +78,14 @@ export class RetentionService {
     };
     const freqStr = freqMap[rule.frequency] ?? rule.frequency;
 
-    return `Garder ${periodStr} max • Vérifié ${freqStr}`;
+    const scopeMap: Record<string, string> = {
+      all: 'DMs + Serveurs',
+      dms: 'DMs seuls',
+      guilds: 'Serveurs',
+    };
+    const scopeStr = scopeMap[rule.targetScope ?? 'all'] ?? 'DMs + Serveurs';
+
+    return `Garder ${periodStr} max • ${scopeStr} • ${freqStr}`;
   }
 }
 
