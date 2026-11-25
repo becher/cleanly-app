@@ -41,10 +41,37 @@ function getPlatformConfig(platform: CleanPlatformType): PlatformConfig {
   );
 }
 
+let foregroundServiceResolver: (() => void) | null = null;
+
+// Enregistrement obligatoire du runner de Foreground Service pour Android
+// Sans ceci, le HeadlessTask Android s'éteint et suspend le JS dès que l'app passe en arrière-plan !
+if (Platform.OS === 'android') {
+  notifee.registerForegroundService((notification) => {
+    return new Promise<void>((resolve) => {
+      foregroundServiceResolver = resolve;
+    });
+  });
+
+  notifee.onBackgroundEvent(async () => {
+    // Événement d'arrière-plan (requis par Notifee pour éviter le warning)
+  });
+}
+
 class CleanNotificationService {
   private channelsCreated = false;
   private isForegroundRunning = false;
   private lastUpdateTimestamp = 0;
+
+  private finishForegroundRunner(): void {
+    if (foregroundServiceResolver) {
+      try {
+        foregroundServiceResolver();
+      } catch (e) {
+        // Ignorer
+      }
+      foregroundServiceResolver = null;
+    }
+  }
 
   /**
    * Initialise les canaux de notification Android (silencieux pour la progression, sonore pour la fin)
@@ -212,6 +239,7 @@ class CleanNotificationService {
   }): Promise<void> {
     try {
       this.isForegroundRunning = false;
+      this.finishForegroundRunner();
 
       // 1. Arrêter le Foreground Service
       if (Platform.OS === 'android') {
@@ -262,6 +290,7 @@ class CleanNotificationService {
   }): Promise<void> {
     try {
       this.isForegroundRunning = false;
+      this.finishForegroundRunner();
 
       if (Platform.OS === 'android') {
         await notifee.stopForegroundService();
