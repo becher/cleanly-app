@@ -20,7 +20,7 @@ Faire de **Cleanly** la référence mobile (Android & iOS) de nettoyage et d'hyg
 | **FEAT-02** | ⚡ **P1 (Élevée)** | **Filtre Données Sensibles (PII Shield)** : Détection en 1 clic des mots de passe, tokens, clés API, emails, IBAN et coordonnées personnelles. | Toutes plateformes | ✅ **Terminé (v1.2)** |
 | **FEAT-03** | ⚡ **P1 (Élevée)** | **Fermeture automatique des DMs** : Supprime vos messages privés puis masque/ferme le fil de discussion de votre liste. | Discord, Teams | ✅ **Terminé (v1.2)** |
 | **FEAT-04** | 🌟 **P2 (Moyenne)** | **Nettoyage des Réactions Emoji** : Retirer en masse les réactions laissées sur les messages d'autres utilisateurs. | Discord, Slack | ✅ **Terminé (v1.3)** |
-| **FEAT-05** | 🌟 **P2 (Moyenne)** | **Import de Package de Données Officiel (ZIP/JSON)** : Contourne les limites des API pour supprimer l'historique complet depuis le 1er jour. | Discord, Twitter, Reddit | ⏳ Planifié |
+| **FEAT-05** | 🌟 **P2 (Moyenne)** | **Import de Package de Données Officiel (ZIP/JSON)** : Contourne les limites des API pour supprimer l'historique complet depuis le 1er jour. | Discord, Twitter, Reddit | ✅ **Terminé (v1.4)** |
 | **FEAT-06** | 📅 **P3 (Évolution)** | **Auto-Clean Programmé (Règle de rétention)** : Tâche d'arrière-plan hebdomadaire ou mensuelle pour purger les messages anciens. | Multi-réseaux | ⏳ Planifié |
 
 ---

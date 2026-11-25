@@ -26,6 +26,7 @@ import { shareMessagesBackup, saveBackupLocally } from '../utils/backupService';
 import { CustomAlertModal, CustomAlertButton } from './CustomAlertModal';
 import { cleanNotificationService } from '../services/cleanNotificationService';
 import { detectPII } from '../utils/piiDetector';
+import { parseOfficialArchive } from '../utils/archiveParser';
 import {
   getDiscordGuilds,
   getDiscordChannels,
@@ -171,6 +172,9 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
   const [filterPIIOnly, setFilterPIIOnly] = useState(false); // FEAT-02 : Filtre Données Sensibles (PII Shield)
   const [autoCloseDMs, setAutoCloseDMs] = useState(false); // FEAT-03 : Fermeture automatique des DMs nettoyés
   const [isCleanReactionsEnabled, setIsCleanReactionsEnabled] = useState(true); // FEAT-04 : Nettoyage Réactions Emojis
+  const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false); // FEAT-05 : Import Archive Officielle
+  const [archiveRawText, setArchiveRawText] = useState('');
+  const [importedArchiveCount, setImportedArchiveCount] = useState(0);
   const [isBackupEnabled, setIsBackupEnabled] = useState(true);
 
   // Exécution de la suppression
@@ -573,6 +577,43 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
       setLoading(false);
       setIsScanning(false);
     }
+  };
+
+  // FEAT-05 : Importation d'archive officielle Discord (messages.json GDPR)
+  const handleImportArchive = () => {
+    const fallbackChId = selectedChannelIds.values().next().value || 'archive_import';
+    const fallbackChName = selectedGuild?.name ? `Archive ${selectedGuild.name}` : 'Archive Officielle';
+
+    const result = parseOfficialArchive(archiveRawText, fallbackChId, fallbackChName);
+    if (!result.success || result.messages.length === 0) {
+      showAlert(
+        'Format non reconnu',
+        result.error || 'Aucun message valide n\'a été détecté dans le texte collé.',
+        [{ text: 'Corriger', style: 'primary' }],
+        'danger'
+      );
+      return;
+    }
+
+    setScannedMessages(result.messages);
+    setSelectedMessageIds(new Set(result.messages.map((m) => m.id)));
+    setImportedArchiveCount(result.messages.length);
+    setIsArchiveModalOpen(false);
+    setArchiveRawText('');
+
+    showAlert(
+      '✅ Archive importée avec succès !',
+      `${formatCount(result.messages.length, 'message historique a été extrait', 'messages historiques ont été extraits')}. Vous pouvez les prévisualiser et lancer la suppression en toute sécurité.`,
+      [
+        {
+          text: 'Voir les messages →',
+          style: 'primary',
+          icon: 'list-outline',
+          onPress: () => setStep('preview_messages'),
+        },
+      ],
+      'success'
+    );
   };
 
   // Basculer la sélection d'un message individuel
@@ -1570,6 +1611,40 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     </View>
                   </View>
 
+                  {/* 4. Import d'Archive Officielle (FEAT-05 Roadmap Cleanly) */}
+                  <View style={styles.filterCard}>
+                    <View style={styles.filterHeaderRow}>
+                      <Ionicons name="document-text-outline" size={18} color="#8B5CF6" style={{ marginRight: 8 }} />
+                      <Text style={styles.filterLabel}>Package de données officiel (Bypass API)</Text>
+                    </View>
+                    <Text style={styles.filterSubDesc}>
+                      L'API de recherche Discord limite parfois les messages très anciens. Importez directement votre export GDPR (messages.json) pour supprimer l'intégralité de votre historique sans restriction.
+                    </Text>
+
+                    <TouchableOpacity
+                      style={styles.archiveImportBtn}
+                      onPress={() => setIsArchiveModalOpen(true)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={importedArchiveCount > 0 ? 'checkmark-circle' : 'cloud-upload-outline'}
+                        size={16}
+                        color={importedArchiveCount > 0 ? '#10B981' : '#8B5CF6'}
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text
+                        style={[
+                          styles.archiveImportBtnText,
+                          importedArchiveCount > 0 && { color: '#10B981', fontWeight: '700' },
+                        ]}
+                      >
+                        {importedArchiveCount > 0
+                          ? `✓ ${importedArchiveCount} messages importés depuis archive`
+                          : 'Coller / Importer un fichier messages.json'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
                   <View style={{ height: 40 }} />
                 </ScrollView>
 
@@ -2451,6 +2526,68 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
             )}
           </View>
         )}
+
+        {/* Modale d'import d'archive officielle (FEAT-05 Roadmap Cleanly) */}
+        <Modal
+          visible={isArchiveModalOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsArchiveModalOpen(false)}
+        >
+          <View style={styles.archiveModalOverlay}>
+            <View style={styles.archiveModalCard}>
+              <View style={styles.archiveModalHeader}>
+                <Ionicons name="document-text" size={22} color="#8B5CF6" style={{ marginRight: 8 }} />
+                <Text style={styles.archiveModalTitle}>Importer messages.json</Text>
+                <View style={{ flex: 1 }} />
+                <TouchableOpacity
+                  onPress={() => setIsArchiveModalOpen(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="close-circle" size={22} color={theme.text.muted} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.archiveModalDesc}>
+                Ouvrez le fichier <Text style={{ fontWeight: '700', color: theme.text.primary }}>messages.json</Text> de votre archive Discord GDPR, copiez son contenu ou vos IDs de messages, et collez-le ci-dessous :
+              </Text>
+
+              <TextInput
+                style={styles.archiveTextInput}
+                placeholder="Ex : [{ &quot;ID&quot;: &quot;123456789...&quot;, &quot;Contents&quot;: &quot;...&quot; }]&#10;ou une liste d'IDs de messages..."
+                placeholderTextColor={theme.text.muted}
+                multiline
+                numberOfLines={8}
+                value={archiveRawText}
+                onChangeText={setArchiveRawText}
+                textAlignVertical="top"
+              />
+
+              <View style={styles.archiveModalActions}>
+                <TouchableOpacity
+                  style={styles.archiveCancelBtn}
+                  onPress={() => setIsArchiveModalOpen(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.archiveCancelBtnText}>Annuler</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.archiveConfirmBtn,
+                    !archiveRawText.trim() && { opacity: 0.5 },
+                  ]}
+                  onPress={handleImportArchive}
+                  disabled={!archiveRawText.trim()}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="flash" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.archiveConfirmBtnText}>Analyser & Charger</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* Modale de Dialogue / Alerte personnalisée Multiplateforme (iOS & Android) */}
         <CustomAlertModal
@@ -4136,5 +4273,96 @@ const styles = StyleSheet.create({
     color: '#5865F2',
     fontWeight: '900',
     marginLeft: 2,
+  },
+  // Nouveaux styles FEAT-05 : Import Archive Officielle (messages.json)
+  archiveImportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#8B5CF612',
+    borderWidth: 1,
+    borderColor: '#8B5CF640',
+    borderRadius: theme.radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 10,
+  },
+  archiveImportBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#8B5CF6',
+  },
+  archiveModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  archiveModalCard: {
+    width: '100%',
+    backgroundColor: '#FFF',
+    borderRadius: theme.radius.lg,
+    padding: 20,
+    elevation: 8,
+  },
+  archiveModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  archiveModalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: theme.text.primary,
+  },
+  archiveModalDesc: {
+    fontSize: 12,
+    color: theme.text.secondary,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  archiveTextInput: {
+    backgroundColor: theme.bg.raised,
+    borderWidth: 1,
+    borderColor: theme.border.default,
+    borderRadius: theme.radius.md,
+    padding: 12,
+    fontSize: 12,
+    fontFamily: 'monospace',
+    color: theme.text.primary,
+    height: 160,
+    marginBottom: 16,
+  },
+  archiveModalActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  archiveCancelBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.bg.raised,
+  },
+  archiveCancelBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.text.secondary,
+  },
+  archiveConfirmBtn: {
+    flex: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: theme.radius.md,
+    backgroundColor: '#8B5CF6',
+  },
+  archiveConfirmBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFF',
   },
 });
