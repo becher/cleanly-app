@@ -1489,22 +1489,49 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
             {/* ================= ÉTAPE 4 : PRÉVISUALISATION DES MESSAGES ================= */}
             {step === 'preview_messages' && (
               <View style={{ flex: 1 }}>
-                {/* 1. ZONE FIXE EN HAUT : RÉCAPITULATIF + FILTRE DE RECHERCHE + CHECKBOX TABLEAU + RADIOBOX BACKUP */}
+                {/* 1. ZONE FIXE EN HAUT : RÉCAPITULATIF AVEC CHECKBOX INTÉGRÉE + FILTRE DE RECHERCHE */}
                 <View style={styles.previewTopFilterContainer}>
-                  {/* En-tête : Titre & Compteur global synchronisés avec le filtre */}
+                  {/* En-tête : Checkbox Tout Cocher intégrée directement dans le titre & Compteur */}
                   <View style={styles.previewHeaderCompact}>
-                    <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={styles.previewTitle}>
-                        {isMessageFilterActive
-                          ? `🎯 ${formatCount(filteredScannedMessages.length, 'message filtré', 'messages filtrés')}`
-                          : `🎯 ${formatCount(scannedMessages.length, 'message trouvé', 'messages trouvés')}`}
-                      </Text>
-                      <Text style={styles.previewSub}>
-                        {isMessageFilterActive
-                          ? `${formatCount(selectedFilteredCount, 'sélectionné', 'sélectionnés')} dans le filtre • ${selectedMessageIds.size} au total`
-                          : `${formatCount(selectedMessageIds.size, 'sélectionné', 'sélectionnés')} • ~${estimatedSeconds}s de suppression`}
-                      </Text>
-                    </View>
+                    <TouchableOpacity
+                      style={styles.tableSelectAllCompactBtn}
+                      onPress={toggleAllMessages}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={
+                          isAllFilteredMessagesSelected
+                            ? 'checkbox'
+                            : isSomeFilteredMessagesSelected
+                              ? 'remove-circle'
+                              : 'square-outline'
+                        }
+                        size={22}
+                        color={
+                          isAllFilteredMessagesSelected || isSomeFilteredMessagesSelected
+                            ? theme.accent.red
+                            : theme.text.muted
+                        }
+                        style={{ marginRight: 8 }}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.previewTitle}>
+                          {isMessageFilterActive
+                            ? `🎯 ${formatCount(filteredScannedMessages.length, 'message filtré', 'messages filtrés')}`
+                            : `🎯 ${formatCount(scannedMessages.length, 'message trouvé', 'messages trouvés')}`}
+                        </Text>
+                        <Text style={styles.previewSub}>
+                          {isAllFilteredMessagesSelected
+                            ? isMessageFilterActive
+                              ? `Tous les ${filteredScannedMessages.length} filtrés cochés`
+                              : 'Tous les messages cochés'
+                            : isSomeFilteredMessagesSelected
+                              ? `${selectedFilteredCount} sélectionné${selectedFilteredCount > 1 ? 's' : ''} (${selectedMessageIds.size} au total)`
+                              : 'Appuyer pour tout cocher'}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
                     <View style={[styles.tableStatsBadge, isMessageFilterActive && styles.tableStatsBadgeFiltered]}>
                       <Text style={[styles.tableStatsBadgeText, isMessageFilterActive && styles.tableStatsBadgeTextFiltered]}>
                         {isMessageFilterActive
@@ -1515,7 +1542,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                   </View>
 
                   {/* Zone de Recherche = LE FILTRE EN HAUT */}
-                  <View style={[styles.filterSearchBarBox, { marginTop: 4, marginBottom: 8 }]}>
+                  <View style={[styles.filterSearchBarBox, { marginTop: 4, marginBottom: 4 }]}>
                     <Ionicons name="search" size={17} color={theme.text.muted} style={{ marginRight: 8 }} />
                     <TextInput
                       style={styles.filterSearchInput}
@@ -1532,105 +1559,6 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                         <Ionicons name="close-circle" size={18} color={theme.text.muted} />
                       </TouchableOpacity>
                     )}
-                  </View>
-
-                  {/* Barre de contrôle unifiée : Tout Cocher + Options rapides (Backup & Furtif) */}
-                  <View style={styles.tableUnifiedControlBar}>
-                    <TouchableOpacity
-                      style={styles.tableSelectAllBtn}
-                      onPress={toggleAllMessages}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name={
-                          isAllFilteredMessagesSelected
-                            ? 'checkbox'
-                            : isSomeFilteredMessagesSelected
-                              ? 'remove-circle'
-                              : 'square-outline'
-                        }
-                        size={21}
-                        color={
-                          isAllFilteredMessagesSelected || isSomeFilteredMessagesSelected
-                            ? theme.accent.red
-                            : theme.text.muted
-                        }
-                        style={{ marginRight: 6 }}
-                      />
-                      <Text
-                        style={[
-                          styles.tableSelectAllText,
-                          (isAllFilteredMessagesSelected || isSomeFilteredMessagesSelected) && {
-                            color: theme.accent.red,
-                            fontWeight: '700',
-                          },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {isAllFilteredMessagesSelected
-                          ? isMessageFilterActive
-                            ? `Tous cochés (${filteredScannedMessages.length})`
-                            : 'Tous cochés'
-                          : isSomeFilteredMessagesSelected
-                            ? `${selectedFilteredCount}/${filteredScannedMessages.length}`
-                            : isMessageFilterActive
-                              ? `Cocher filtrés (${filteredScannedMessages.length})`
-                              : 'Tout cocher'}
-                      </Text>
-                    </TouchableOpacity>
-
-                    {/* Options rapides intégrées sur la même ligne : Backup & Mode Furtif */}
-                    <View style={styles.quickOptionsGroup}>
-                      {/* Pill Backup */}
-                      <TouchableOpacity
-                        style={[
-                          styles.quickPill,
-                          isBackupEnabled ? styles.quickPillBackupActive : styles.quickPillInactive,
-                        ]}
-                        onPress={() => setIsBackupEnabled(!isBackupEnabled)}
-                        activeOpacity={0.75}
-                      >
-                        <Ionicons
-                          name={isBackupEnabled ? 'shield-checkmark' : 'shield-outline'}
-                          size={13}
-                          color={isBackupEnabled ? '#10B981' : theme.text.muted}
-                          style={{ marginRight: 4 }}
-                        />
-                        <Text
-                          style={[
-                            styles.quickPillText,
-                            isBackupEnabled && styles.quickPillTextBackupActive,
-                          ]}
-                        >
-                          Backup {isBackupEnabled ? '✓' : 'off'}
-                        </Text>
-                      </TouchableOpacity>
-
-                      {/* Pill Mode Furtif */}
-                      <TouchableOpacity
-                        style={[
-                          styles.quickPill,
-                          isGhostModeEnabled ? styles.quickPillGhostActive : styles.quickPillInactive,
-                        ]}
-                        onPress={() => setIsGhostModeEnabled(!isGhostModeEnabled)}
-                        activeOpacity={0.75}
-                      >
-                        <Ionicons
-                          name={isGhostModeEnabled ? 'eye-off' : 'eye-off-outline'}
-                          size={13}
-                          color={isGhostModeEnabled ? '#8B5CF6' : theme.text.muted}
-                          style={{ marginRight: 4 }}
-                        />
-                        <Text
-                          style={[
-                            styles.quickPillText,
-                            isGhostModeEnabled && styles.quickPillTextGhostActive,
-                          ]}
-                        >
-                          Furtif {isGhostModeEnabled ? '✓' : 'off'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
                   </View>
                 </View>
 
@@ -1692,73 +1620,128 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                   <View style={{ height: 80 }} />
                 </ScrollView>
 
-                {/* Footer suppression avec choix de la méthode anti-ban */}
+                {/* Footer suppression : Options de sécurité & Méthode de suppression ultra-compacte */}
                 <View style={styles.previewBottomBar}>
-                  {/* Sélecteur de méthode de suppression */}
-                  <View style={styles.speedSelectorBox}>
-                    <View style={styles.speedSelectorHeader}>
-                      <Ionicons
-                        name={speedDelayMs === 1000 ? 'shield-checkmark' : 'speedometer-outline'}
-                        size={15}
-                        color={speedDelayMs === 1000 ? '#10B981' : '#5865F2'}
-                        style={{ marginRight: 6 }}
-                      />
-                      <Text style={styles.speedSelectorLabel}>Méthode de suppression</Text>
-                      {speedDelayMs === 1000 && (
-                        <View style={[styles.antibanBadge, { marginLeft: 8 }]}>
-                          <Text style={styles.antibanBadgeText}>ANTI-BAN ACTIF</Text>
+                  <View style={styles.cleanOptionsContainer}>
+                    {/* Ligne 1 : Les 2 options de sécurité côte-à-côte avec vrais boutons et switches tactiles */}
+                    <View style={styles.securityTogglesRow}>
+                      {/* Option Sauvegarde (Backup) */}
+                      <TouchableOpacity
+                        style={[
+                          styles.securityToggleCard,
+                          isBackupEnabled && styles.securityToggleCardBackupActive,
+                        ]}
+                        onPress={() => setIsBackupEnabled(!isBackupEnabled)}
+                        activeOpacity={0.8}
+                      >
+                        <View style={styles.securityToggleLeft}>
+                          <Ionicons
+                            name={isBackupEnabled ? 'shield-checkmark' : 'shield-outline'}
+                            size={16}
+                            color={isBackupEnabled ? '#10B981' : theme.text.muted}
+                            style={{ marginRight: 6 }}
+                          />
+                          <View style={{ flex: 1 }}>
+                            <Text
+                              style={[
+                                styles.securityToggleTitle,
+                                isBackupEnabled && { color: '#10B981', fontWeight: '700' },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              Sauvegarde
+                            </Text>
+                            <Text style={styles.securityToggleSub} numberOfLines={1}>
+                              {isBackupEnabled ? 'Archive locale ✓' : 'Sans archive'}
+                            </Text>
+                          </View>
                         </View>
-                      )}
-                      <View style={{ flex: 1 }} />
-                      <Text style={styles.speedEstimationText}>
-                        ~{estimatedSeconds}s estimées
-                      </Text>
+                        <Switch
+                          value={isBackupEnabled}
+                          onValueChange={setIsBackupEnabled}
+                          trackColor={{ true: '#10B981', false: theme.bg.raised }}
+                          thumbColor={isBackupEnabled ? '#FFF' : '#A0AEC0'}
+                          style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
+                        />
+                      </TouchableOpacity>
+
+                      {/* Option Mode Furtif */}
+                      <TouchableOpacity
+                        style={[
+                          styles.securityToggleCard,
+                          isGhostModeEnabled && styles.securityToggleCardGhostActive,
+                        ]}
+                        onPress={() => setIsGhostModeEnabled(!isGhostModeEnabled)}
+                        activeOpacity={0.8}
+                      >
+                        <View style={styles.securityToggleLeft}>
+                          <Ionicons
+                            name={isGhostModeEnabled ? 'eye-off' : 'eye-off-outline'}
+                            size={16}
+                            color={isGhostModeEnabled ? '#8B5CF6' : theme.text.muted}
+                            style={{ marginRight: 6 }}
+                          />
+                          <View style={{ flex: 1 }}>
+                            <Text
+                              style={[
+                                styles.securityToggleTitle,
+                                isGhostModeEnabled && { color: '#8B5CF6', fontWeight: '700' },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              Mode Furtif
+                            </Text>
+                            <Text style={styles.securityToggleSub} numberOfLines={1}>
+                              {isGhostModeEnabled ? 'Anti-logs actif ✓' : 'Désactivé'}
+                            </Text>
+                          </View>
+                        </View>
+                        <Switch
+                          value={isGhostModeEnabled}
+                          onValueChange={setIsGhostModeEnabled}
+                          trackColor={{ true: '#8B5CF6', false: theme.bg.raised }}
+                          thumbColor={isGhostModeEnabled ? '#FFF' : '#A0AEC0'}
+                          style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
+                        />
+                      </TouchableOpacity>
                     </View>
 
-                    {/* Bouton déroulant compact */}
+                    {/* Ligne 2 : Sélecteur de méthode de suppression compact (1 seule ligne) */}
                     <TouchableOpacity
-                      style={[styles.dropdownBtn, isSpeedDropdownOpen && styles.dropdownBtnActive, { marginTop: 6, paddingVertical: 8 }]}
+                      style={[styles.speedCompactBar, isSpeedDropdownOpen && styles.speedCompactBarActive]}
                       onPress={() => setIsSpeedDropdownOpen(!isSpeedDropdownOpen)}
                       activeOpacity={0.8}
                     >
-                      <View style={styles.dropdownLeft}>
-                        <View
+                      <View style={styles.speedCompactLeft}>
+                        <Ionicons
+                          name={speedDelayMs === 1000 ? 'shield-checkmark' : 'speedometer-outline'}
+                          size={14}
+                          color={speedDelayMs === 1000 ? '#10B981' : '#5865F2'}
+                          style={{ marginRight: 6 }}
+                        />
+                        <Text style={styles.speedCompactLabel}>Vitesse :</Text>
+                        <Text
                           style={[
-                            styles.dropdownIconCircle,
-                            {
-                              backgroundColor: speedDelayMs === 1000 ? '#10B98115' : '#5865F215',
-                              width: 28,
-                              height: 28,
-                              borderRadius: 14,
-                            },
+                            styles.speedCompactValue,
+                            speedDelayMs === 1000 && { color: '#10B981', fontWeight: '700' },
                           ]}
                         >
-                          <Ionicons
-                            name={speedDelayMs === 1000 ? 'shield-checkmark' : 'speedometer-outline'}
-                            size={14}
-                            color={speedDelayMs === 1000 ? '#10B981' : '#5865F2'}
-                          />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={[
-                              styles.dropdownValue,
-                              { fontSize: 13 },
-                              speedDelayMs === 1000 && { color: '#10B981', fontWeight: '700' },
-                            ]}
-                          >
-                            {(SPEED_OPTIONS.find((o) => o.ms === speedDelayMs) ?? SPEED_OPTIONS[0]).title}
-                          </Text>
-                        </View>
+                          {(SPEED_OPTIONS.find((o) => o.ms === speedDelayMs) ?? SPEED_OPTIONS[0]).title}
+                        </Text>
                       </View>
-                      <Ionicons
-                        name={isSpeedDropdownOpen ? 'chevron-up' : 'chevron-down'}
-                        size={18}
-                        color={theme.text.secondary}
-                      />
+
+                      <View style={styles.speedCompactRight}>
+                        <Text style={styles.speedCompactEstimate}>~{estimatedSeconds}s estimées</Text>
+                        <Ionicons
+                          name={isSpeedDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                          size={14}
+                          color={theme.text.secondary}
+                          style={{ marginLeft: 4 }}
+                        />
+                      </View>
                     </TouchableOpacity>
 
-                    {/* Menu déroulant dépliable */}
+                    {/* Menu déroulant de vitesse si ouvert */}
                     {isSpeedDropdownOpen && (
                       <View style={styles.dropdownMenu}>
                         {SPEED_OPTIONS.map((opt, idx) => {
@@ -3427,56 +3410,99 @@ const styles = StyleSheet.create({
     color: theme.text.secondary,
     marginTop: 1,
   },
-  tableUnifiedControlBar: {
+  tableSelectAllCompactBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  cleanOptionsContainer: {
+    backgroundColor: theme.bg.surface,
+    borderRadius: theme.radius.md,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+    gap: 6,
+  },
+  securityTogglesRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  securityToggleCard: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 5,
-    paddingHorizontal: 2,
-    borderTopWidth: 1,
-    borderTopColor: theme.border.subtle,
-    marginTop: 4,
-  },
-  quickOptionsGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  quickPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 14,
+    backgroundColor: '#FFF',
     borderWidth: 1,
     borderColor: theme.border.subtle,
-    backgroundColor: '#FFF',
+    borderRadius: theme.radius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
   },
-  quickPillBackupActive: {
-    backgroundColor: '#10B98115',
+  securityToggleCardBackupActive: {
     borderColor: '#10B98160',
+    backgroundColor: '#10B98108',
   },
-  quickPillGhostActive: {
-    backgroundColor: '#8B5CF618',
+  securityToggleCardGhostActive: {
     borderColor: '#8B5CF660',
+    backgroundColor: '#8B5CF608',
   },
-  quickPillInactive: {
-    backgroundColor: theme.bg.raised,
-    borderColor: 'transparent',
-    opacity: 0.65,
+  securityToggleLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 4,
   },
-  quickPillText: {
+  securityToggleTitle: {
     fontSize: 11,
     fontWeight: '600',
+    color: theme.text.primary,
+  },
+  securityToggleSub: {
+    fontSize: 9,
     color: theme.text.muted,
+    marginTop: 0.5,
   },
-  quickPillTextBackupActive: {
-    color: '#10B981',
-    fontWeight: '700',
+  speedCompactBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.bg.raised,
+    borderRadius: theme.radius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  quickPillTextGhostActive: {
-    color: '#8B5CF6',
+  speedCompactBarActive: {
+    borderColor: '#5865F260',
+    backgroundColor: '#5865F208',
+  },
+  speedCompactLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  speedCompactLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: theme.text.secondary,
+    marginRight: 4,
+  },
+  speedCompactValue: {
+    fontSize: 11,
     fontWeight: '700',
+    color: theme.text.primary,
+  },
+  speedCompactRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  speedCompactEstimate: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: theme.text.muted,
   },
   ghostModeDeletingBadge: {
     flexDirection: 'row',
