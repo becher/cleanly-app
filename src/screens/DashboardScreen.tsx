@@ -176,7 +176,6 @@ export function DashboardScreen() {
           onClose={() => setCleaningAccount(null)}
           onFinished={(count) => {
             loadHistory();
-            Alert.alert('✅ Nettoyage terminé !', `${count} message(s) supprimé(s) avec succès.`);
           }}
         />
       )}
