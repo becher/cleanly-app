@@ -1884,79 +1884,213 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
 
             {/* ================= ÉTAPE 5 : SUPPRESSION EN COURS ================= */}
             {step === 'deleting' && (
-              <View style={styles.deletingContainer}>
-                <View style={[styles.deletingIcon, percent === 100 && { backgroundColor: '#22C55E15' }]}>
-                  <Text style={{ fontSize: 44 }}>{percent === 100 ? '✨' : '🧹'}</Text>
-                </View>
-
-                <Text style={styles.deletingTitle}>
-                  {percent === 100 ? 'Nettoyage terminé !' : 'Suppression en cours...'}
-                </Text>
-                <Text style={styles.deletingSub}>
-                  {speedDelayMs === 1000
-                    ? '🛡️ Protection anti-ban active (1 seconde par message)'
-                    : `Vitesse de suppression : ${speedDelayMs} ms par message`}
-                </Text>
-                {isGhostModeEnabled && (
-                  <View style={styles.ghostModeDeletingBadge}>
-                    <Ionicons name="eye-off" size={12} color="#8B5CF6" style={{ marginRight: 4 }} />
-                    <Text style={styles.ghostModeDeletingBadgeText}>Mode Furtif actif (anti-logs)</Text>
-                  </View>
-                )}
-
-                {/* Barre de progression */}
-                <View style={styles.progressTrack}>
+              <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={styles.deletingScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {/* 1. Cercle d'animation moderne & indicateur de statut */}
+                <View style={styles.deletingIconWrapper}>
                   <View
                     style={[
-                      styles.progressBar,
-                      {
-                        width: `${percent}%`,
-                        backgroundColor: percent === 100 ? theme.accent.green : theme.accent.red,
-                      },
+                      styles.deletingIconOuter,
+                      percent === 100 && styles.deletingIconOuterSuccess,
+                      isPaused && styles.deletingIconOuterPaused,
                     ]}
-                  />
+                  >
+                    <View
+                      style={[
+                        styles.deletingIconInner,
+                        percent === 100 && styles.deletingIconInnerSuccess,
+                        isPaused && styles.deletingIconInnerPaused,
+                      ]}
+                    >
+                      <Ionicons
+                        name={
+                          percent === 100
+                            ? 'checkmark-done'
+                            : isPaused
+                              ? 'pause'
+                              : 'trash-outline'
+                        }
+                        size={32}
+                        color={
+                          percent === 100
+                            ? '#10B981'
+                            : isPaused
+                              ? '#F59E0B'
+                              : '#5865F2'
+                        }
+                      />
+                    </View>
+                  </View>
                 </View>
 
-                <Text style={[styles.percentText, percent === 100 && { color: theme.accent.green }]}>
-                  {percent}%
+                {/* 2. Titre et sous-titre de l'opération */}
+                <Text style={styles.deletingMainTitle}>
+                  {percent === 100
+                    ? 'Nettoyage terminé !'
+                    : isPaused
+                      ? 'Nettoyage en pause'
+                      : 'Suppression en cours'}
                 </Text>
-                <Text style={styles.countText}>
-                  {deletedCount} / {targetCount} message{targetCount > 1 ? 's' : ''} supprimé{targetCount > 1 ? 's' : ''}
-                </Text>
-
-                {remainingCount > 0 && (
-                  <Text style={styles.timerText}>Temps restant estimé : ~{estimatedSeconds}s</Text>
-                )}
-
-                <Text
-                  style={[
-                    styles.statusLog,
-                    percent === 100 && { color: theme.accent.green, fontWeight: '700', fontStyle: 'normal' },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {currentStatus}
+                <Text style={styles.deletingTargetSub} numberOfLines={1}>
+                  {headerSubtitle || 'Nettoyage de vos messages'}
                 </Text>
 
-                {/* Contrôles Pause / Stop */}
+                {/* 3. Dashboard des métriques clés (3 cartes) */}
+                <View style={styles.metricsDashboardRow}>
+                  {/* Carte Progression */}
+                  <View style={styles.metricCard}>
+                    <View style={styles.metricCardHeader}>
+                      <Ionicons name="pie-chart-outline" size={13} color="#5865F2" />
+                      <Text style={styles.metricCardLabel}>Progression</Text>
+                    </View>
+                    <Text style={[styles.metricCardValue, percent === 100 && { color: '#10B981' }]}>
+                      {percent}%
+                    </Text>
+                  </View>
+
+                  {/* Carte Traités */}
+                  <View style={styles.metricCard}>
+                    <View style={styles.metricCardHeader}>
+                      <Ionicons name="trash-outline" size={13} color={theme.accent.red} />
+                      <Text style={styles.metricCardLabel}>Supprimés</Text>
+                    </View>
+                    <Text style={styles.metricCardValue}>
+                      {deletedCount} <Text style={styles.metricCardValueTotal}>/ {targetCount}</Text>
+                    </Text>
+                  </View>
+
+                  {/* Carte Temps estimé */}
+                  <View style={styles.metricCard}>
+                    <View style={styles.metricCardHeader}>
+                      <Ionicons name="time-outline" size={13} color="#F59E0B" />
+                      <Text style={styles.metricCardLabel}>Restant</Text>
+                    </View>
+                    <Text style={[styles.metricCardValue, { color: '#F59E0B' }]}>
+                      {percent === 100 ? '0s' : `~${estimatedSeconds}s`}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* 4. Barre de progression moderne */}
+                <View style={styles.progressContainer}>
+                  <View style={styles.progressTrackModern}>
+                    <View
+                      style={[
+                        styles.progressBarModern,
+                        {
+                          width: `${percent}%`,
+                          backgroundColor: percent === 100 ? '#10B981' : '#5865F2',
+                        },
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.progressLabelsRow}>
+                    <Text style={styles.progressPercentSub}>
+                      {formatCount(deletedCount, 'message supprimé', 'messages supprimés')}
+                    </Text>
+                    <Text style={styles.progressPercentSub}>
+                      {targetCount - deletedCount > 0
+                        ? `${targetCount - deletedCount} restant${targetCount - deletedCount > 1 ? 's' : ''}`
+                        : 'Complet'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* 5. Console d'activité en temps réel (Live Process Console) */}
+                <View style={styles.liveConsoleCard}>
+                  <View style={styles.liveConsoleHeader}>
+                    <View style={styles.livePulseDot} />
+                    <Text style={styles.liveConsoleHeaderTitle}>TRAITEMENT EN DIRECT</Text>
+                    <View style={{ flex: 1 }} />
+                    <View style={styles.liveSpeedBadge}>
+                      <Ionicons
+                        name={speedDelayMs === 1000 ? 'shield-checkmark' : 'speedometer-outline'}
+                        size={11}
+                        color={speedDelayMs === 1000 ? '#10B981' : '#5865F2'}
+                        style={{ marginRight: 3 }}
+                      />
+                      <Text style={[styles.liveSpeedBadgeText, speedDelayMs === 1000 && { color: '#10B981' }]}>
+                        {speedDelayMs === 1000 ? 'Anti-ban 1s' : `${speedDelayMs}ms`}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.liveConsoleMessage,
+                      percent === 100 && { color: '#10B981', fontWeight: '600' },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {currentStatus || 'Initialisation du processus...'}
+                  </Text>
+
+                  {/* Badges de protection et options actives */}
+                  <View style={styles.liveSecurityTagsRow}>
+                    {speedDelayMs === 1000 && (
+                      <View style={styles.liveSecurityTag}>
+                        <Ionicons name="shield-checkmark" size={11} color="#10B981" style={{ marginRight: 4 }} />
+                        <Text style={styles.liveSecurityTagText}>Anti-ban</Text>
+                      </View>
+                    )}
+                    {isGhostModeEnabled && (
+                      <View style={[styles.liveSecurityTag, { backgroundColor: '#8B5CF612', borderColor: '#8B5CF630' }]}>
+                        <Ionicons name="eye-off" size={11} color="#8B5CF6" style={{ marginRight: 4 }} />
+                        <Text style={[styles.liveSecurityTagText, { color: '#8B5CF6' }]}>Mode Furtif</Text>
+                      </View>
+                    )}
+                    {isBackupEnabled && (
+                      <View style={[styles.liveSecurityTag, { backgroundColor: '#10B98112', borderColor: '#10B98130' }]}>
+                        <Ionicons name="save-outline" size={11} color="#10B981" style={{ marginRight: 4 }} />
+                        <Text style={[styles.liveSecurityTagText, { color: '#10B981' }]}>Sauvegarde</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                {/* 6. Contrôles Pause / Arrêter */}
                 {percent < 100 && (
-                  <View style={styles.controlRow}>
-                    <TouchableOpacity style={styles.controlBtn} onPress={togglePause} activeOpacity={0.8}>
-                      <Ionicons name={isPaused ? 'play' : 'pause'} size={18} color={theme.text.primary} style={{ marginRight: 6 }} />
-                      <Text style={styles.controlBtnText}>{isPaused ? 'Reprendre' : 'Pause'}</Text>
+                  <View style={styles.deletingActionButtonsRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.deletingActionBtn,
+                        isPaused && styles.deletingActionBtnResume,
+                      ]}
+                      onPress={togglePause}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={isPaused ? 'play' : 'pause'}
+                        size={17}
+                        color={isPaused ? '#10B981' : theme.text.primary}
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text
+                        style={[
+                          styles.deletingActionBtnText,
+                          isPaused && { color: '#10B981' },
+                        ]}
+                      >
+                        {isPaused ? 'Reprendre' : 'Pause'}
+                      </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.controlBtn, { borderColor: theme.accent.red }]}
+                      style={[styles.deletingActionBtn, styles.deletingActionBtnStop]}
                       onPress={stopDeletion}
                       activeOpacity={0.8}
                     >
-                      <Ionicons name="stop" size={18} color={theme.accent.red} style={{ marginRight: 6 }} />
-                      <Text style={[styles.controlBtnText, { color: theme.accent.red }]}>Arrêter</Text>
+                      <Ionicons name="stop" size={17} color={theme.accent.red} style={{ marginRight: 6 }} />
+                      <Text style={[styles.deletingActionBtnText, { color: theme.accent.red }]}>
+                        Arrêter
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 )}
-              </View>
+              </ScrollView>
             )}
 
             {/* ================= ÉTAPE 6 : TERMINÉ (ERGONOMIE MODERNE & BOUTON FIXE) ================= */}
@@ -2930,88 +3064,224 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 16,
   },
-  deletingContainer: {
-    flex: 1,
-    padding: 24,
+  deletingScrollContent: {
+    padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    flexGrow: 1,
   },
-  deletingIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  deletingIconWrapper: {
+    marginBottom: 12,
+  },
+  deletingIconOuter: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#5865F212',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deletingIconOuterSuccess: {
+    backgroundColor: '#10B98115',
+  },
+  deletingIconOuterPaused: {
+    backgroundColor: '#F59E0B15',
+  },
+  deletingIconInner: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
-    elevation: 2,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  deletingTitle: {
+  deletingIconInnerSuccess: {
+    backgroundColor: '#FFF',
+  },
+  deletingIconInnerPaused: {
+    backgroundColor: '#FFF',
+  },
+  deletingMainTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: '800',
     color: theme.text.primary,
-    marginBottom: 4,
+    marginBottom: 3,
+    textAlign: 'center',
   },
-  deletingSub: {
-    fontSize: 13,
+  deletingTargetSub: {
+    fontSize: 12,
+    fontWeight: '500',
     color: theme.text.secondary,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 18,
+    paddingHorizontal: 20,
   },
-  progressTrack: {
-    width: '100%',
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: theme.bg.raised,
-    overflow: 'hidden',
-    marginBottom: 12,
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: theme.accent.red,
-    borderRadius: 6,
-  },
-  percentText: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: theme.accent.red,
-    marginBottom: 2,
-  },
-  countText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: theme.text.secondary,
-    marginBottom: 6,
-  },
-  timerText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: theme.accent.amber,
-    marginBottom: 12,
-  },
-  statusLog: {
-    fontSize: 12,
-    color: theme.text.muted,
-    fontStyle: 'italic',
-    marginBottom: 20,
-  },
-  controlRow: {
+  metricsDashboardRow: {
     flexDirection: 'row',
-    gap: 12,
+    width: '100%',
+    gap: 8,
+    marginBottom: 16,
   },
-  controlBtn: {
+  metricCard: {
+    flex: 1,
+    backgroundColor: '#FFF',
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+    padding: 10,
+    elevation: 1,
+  },
+  metricCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    gap: 4,
+    marginBottom: 4,
+  },
+  metricCardLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: theme.text.muted,
+  },
+  metricCardValue: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: theme.text.primary,
+  },
+  metricCardValueTotal: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: theme.text.muted,
+  },
+  progressContainer: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  progressTrackModern: {
+    width: '100%',
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.bg.raised,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  progressBarModern: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  progressLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+  },
+  progressPercentSub: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.text.secondary,
+  },
+  liveConsoleCard: {
+    width: '100%',
+    backgroundColor: '#FFF',
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+    padding: 12,
+    marginBottom: 20,
+    elevation: 1,
+  },
+  liveConsoleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  livePulseDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+    marginRight: 6,
+  },
+  liveConsoleHeaderTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: theme.text.muted,
+    letterSpacing: 0.5,
+  },
+  liveSpeedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.bg.raised,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  liveSpeedBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#5865F2',
+  },
+  liveConsoleMessage: {
+    fontSize: 12,
+    color: theme.text.secondary,
+    lineHeight: 17,
+    fontFamily: 'monospace',
+    backgroundColor: theme.bg.raised,
+    padding: 8,
+    borderRadius: theme.radius.sm,
+    marginBottom: 10,
+  },
+  liveSecurityTagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  liveSecurityTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#10B98110',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#10B98130',
+  },
+  liveSecurityTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#10B981',
+  },
+  deletingActionButtonsRow: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 10,
+  },
+  deletingActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.border.default,
     backgroundColor: '#FFF',
+    elevation: 1,
   },
-  controlBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
+  deletingActionBtnResume: {
+    borderColor: '#10B981',
+    backgroundColor: '#10B9810A',
+  },
+  deletingActionBtnStop: {
+    borderColor: '#EF444440',
+    backgroundColor: '#EF444408',
+  },
+  deletingActionBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
     color: theme.text.primary,
   },
   completeScrollContent: {
