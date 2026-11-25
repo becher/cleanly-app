@@ -241,10 +241,11 @@ class CleanNotificationService {
       this.isForegroundRunning = false;
       this.finishForegroundRunner();
 
-      // 1. Arrêter le Foreground Service
+      // 1. Arrêter le Foreground Service et supprimer immédiatement la notification d'avancement
       if (Platform.OS === 'android') {
         await notifee.stopForegroundService();
         await notifee.cancelNotification('cleanly_cleaning_progress');
+        await notifee.cancelDisplayedNotification('cleanly_cleaning_progress');
       }
 
       await this.initNotificationChannels();
@@ -295,6 +296,7 @@ class CleanNotificationService {
       if (Platform.OS === 'android') {
         await notifee.stopForegroundService();
         await notifee.cancelNotification('cleanly_cleaning_progress');
+        await notifee.cancelDisplayedNotification('cleanly_cleaning_progress');
       }
 
       await this.initNotificationChannels();

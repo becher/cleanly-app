@@ -874,13 +874,22 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
       'Interrompre le nettoyage ?',
       'Voulez-vous vraiment stopper la suppression en cours ? Les messages déjà supprimés ne peuvent pas être restaurés.',
       [
-        { text: 'Oui', style: 'cancel', icon: 'play-outline' },
         {
-          text: 'Non',
+          text: 'Continuer',
+          style: 'cancel',
+          icon: 'play-outline',
+        },
+        {
+          text: 'Arrêter',
           style: 'destructive',
           icon: 'stop-circle-outline',
           onPress: () => {
             stopRef.current = true;
+            // Arrête immédiatement le service d'arrière-plan et retire la notification de progression
+            cleanNotificationService.notifyCleanStopped({
+              platform: 'discord',
+              deletedCount,
+            });
           },
         },
       ],
