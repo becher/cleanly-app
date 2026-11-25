@@ -66,10 +66,9 @@ export function DashboardScreen() {
 
   const recentRecords = records.slice(0, 3);
 
-  // VUE INTÉGRÉE D'AUTO-CLEAN & RÉTENTION (Le menu de navigation en bas reste 100% visible !)
-  if (showRetentionView) {
-    return (
-      <View style={{ flex: 1, backgroundColor: theme.bg.base }}>
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.bg.base }}>
+      {showRetentionView ? (
         <RetentionModal
           visible={true}
           embedded={true}
@@ -82,51 +81,29 @@ export function DashboardScreen() {
             setCleaningAccount(acc);
           }}
         />
-
-        {cleaningAccount?.platform === 'discord' && (
-          <DiscordCleanModal
-            visible={true}
-            token={cleaningAccount.token}
-            userId={cleaningAccount.id.replace('discord_', '')}
-            initialFilterDays={retentionCleanDays}
-            initialGhostMode={retentionGhostMode}
-            initialIgnorePinned={retentionIgnorePinned}
-            onClose={() => {
-              setCleaningAccount(null);
-              setRetentionCleanDays(undefined);
-            }}
-            onFinished={() => {
-              loadHistory();
-            }}
-          />
-        )}
-      </View>
-    );
-  }
-
-  return (
-    <ScrollView style={styles.page} showsVerticalScrollIndicator={false}>
-      {/* Statistiques en tête */}
-      <View style={styles.statsRow}>
-        <StatCard
-          icon="git-network-outline"
-          label="Réseaux"
-          value={accounts.length}
-          color={theme.accent.primary}
-        />
-        <StatCard
-          icon="sparkles-outline"
-          label="Nettoyés"
-          value={totalDeleted}
-          color={theme.accent.green}
-        />
-        <StatCard
-          icon="checkmark-done-circle-outline"
-          label="Sessions"
-          value={records.length}
-          color="#8B5CF6"
-        />
-      </View>
+      ) : (
+        <ScrollView style={styles.page} showsVerticalScrollIndicator={false}>
+          {/* Statistiques en tête */}
+          <View style={styles.statsRow}>
+            <StatCard
+              icon="git-network-outline"
+              label="Réseaux"
+              value={accounts.length}
+              color={theme.accent.primary}
+            />
+            <StatCard
+              icon="sparkles-outline"
+              label="Nettoyés"
+              value={totalDeleted}
+              color={theme.accent.green}
+            />
+            <StatCard
+              icon="checkmark-done-circle-outline"
+              label="Sessions"
+              value={records.length}
+              color="#8B5CF6"
+            />
+          </View>
 
       {/* Bannière Rétention & Auto-Clean (FEAT-06) */}
       {accounts.length > 0 && (
@@ -252,7 +229,10 @@ export function DashboardScreen() {
 
       <View style={{ height: 32 }} />
 
-      {/* Modale de nettoyage Discord */}
+        </ScrollView>
+      )}
+
+      {/* Modale de nettoyage Discord — Toujours stable à la racine */}
       {cleaningAccount?.platform === 'discord' && (
         <DiscordCleanModal
           visible={true}
@@ -270,7 +250,7 @@ export function DashboardScreen() {
           }}
         />
       )}
-    </ScrollView>
+    </View>
   );
 }
 

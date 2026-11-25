@@ -25,9 +25,9 @@ export function SettingsScreen() {
   const [retentionIgnorePinned, setRetentionIgnorePinned] = useState<boolean | undefined>(undefined);
   const loadHistory = useHistoryStore((s) => s.loadHistory);
 
-  if (showRetentionView) {
-    return (
-      <View style={{ flex: 1, backgroundColor: theme.bg.base }}>
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.bg.base }}>
+      {showRetentionView ? (
         <RetentionModal
           visible={true}
           embedded={true}
@@ -40,30 +40,8 @@ export function SettingsScreen() {
             setCleaningAccount(acc);
           }}
         />
-
-        {cleaningAccount?.platform === 'discord' && (
-          <DiscordCleanModal
-            visible={true}
-            token={cleaningAccount.token}
-            userId={cleaningAccount.id.replace('discord_', '')}
-            initialFilterDays={retentionCleanDays}
-            initialGhostMode={retentionGhostMode}
-            initialIgnorePinned={retentionIgnorePinned}
-            onClose={() => {
-              setCleaningAccount(null);
-              setRetentionCleanDays(undefined);
-            }}
-            onFinished={() => {
-              loadHistory();
-            }}
-          />
-        )}
-      </View>
-    );
-  }
-
-  return (
-    <ScrollView style={styles.page} showsVerticalScrollIndicator={false}>
+      ) : (
+        <ScrollView style={styles.page} showsVerticalScrollIndicator={false}>
       {/* Forfait */}
       <View style={styles.planCard}>
         <View style={styles.planHeader}>
@@ -135,9 +113,30 @@ export function SettingsScreen() {
         </View>
       </View>
 
-      <View style={{ height: 32 }} />
-    </ScrollView>
-  );
+        <View style={{ height: 32 }} />
+      </ScrollView>
+    )}
+
+    {/* Modale de nettoyage Discord — Toujours stable à la racine */}
+    {cleaningAccount?.platform === 'discord' && (
+      <DiscordCleanModal
+        visible={true}
+        token={cleaningAccount.token}
+        userId={cleaningAccount.id.replace('discord_', '')}
+        initialFilterDays={retentionCleanDays}
+        initialGhostMode={retentionGhostMode}
+        initialIgnorePinned={retentionIgnorePinned}
+        onClose={() => {
+          setCleaningAccount(null);
+          setRetentionCleanDays(undefined);
+        }}
+        onFinished={() => {
+          loadHistory();
+        }}
+      />
+    )}
+  </View>
+);
 }
 
 const styles = StyleSheet.create({

@@ -54,6 +54,9 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
 
   useEffect(() => {
+    if (accounts.length === 0) {
+      useAuthStore.getState().loadAccounts();
+    }
     if (visible || embedded) {
       loadRules();
       if (accounts.length > 0 && !selectedAccountId) {
@@ -82,25 +85,31 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
   };
 
   const handleUpdate = async (patch: Partial<RetentionRule>) => {
-    if (!currentAccount) return;
+    const targetAccount = currentAccount || accounts[0];
+    if (!targetAccount) return;
     const updated: RetentionRule = {
       ...activeRule,
       ...patch,
-      accountId: currentAccount.id,
-      platform: currentAccount.platform,
-      accountName: currentAccount.displayName || currentAccount.username,
+      accountId: targetAccount.id,
+      platform: targetAccount.platform,
+      accountName: targetAccount.displayName || targetAccount.username,
     };
     await saveRule(updated);
   };
 
   const handleImmediateClean = () => {
-    if (!currentAccount) {
-      Alert.alert('Compte requis', 'Veuillez connecter un compte dans l’onglet Réseaux.');
+    const targetAccount = currentAccount || accounts[0];
+    if (!targetAccount) {
+      Alert.alert(
+        'Compte requis',
+        'Veuillez d’abord connecter un compte dans l’onglet Réseaux.'
+      );
       return;
     }
+
     if (onTriggerClean) {
       onTriggerClean(
-        currentAccount,
+        targetAccount,
         activeRule.retentionDays,
         activeRule.stealthMode,
         activeRule.ignorePinned
