@@ -16,7 +16,7 @@ Faire de **Cleanly** la référence mobile (Android & iOS) de nettoyage et d'hyg
 
 | ID | Priorité | Fonctionnalité | Plateformes cibles | Statut |
 |---|:---:|---|:---:|:---:|
-| **FEAT-01** | 🔥 **P0 (Immédiat)** | **Mode Furtif / Ghosting (Edit-before-Delete)** : Anonymise le message (`.`) avant suppression pour tromper les bots de logs de serveurs (*Carl-bot*, *Dyno*). | Discord, Reddit, Twitter | ✅ **Terminé (v1.1)** |
+| **FEAT-01** | 🔥 **P0 (Immédiat)** | **Mode Furtif (Anti-Surveillance & Logs)** : Anonymise et brouille le contenu avant suppression définitive pour préserver la vie privée face aux outils de surveillance et robots de salons de logs. | Discord, Reddit, Twitter | ✅ **Terminé (v1.1)** |
 | **FEAT-02** | ⚡ **P1 (Élevée)** | **Filtre Données Sensibles (PII Shield)** : Détection en 1 clic des mots de passe, tokens, clés API, emails, IBAN et liens d'invitation. | Toutes plateformes | ⏳ Planifié |
 | **FEAT-03** | ⚡ **P1 (Élevée)** | **Fermeture automatique des DMs** : Supprime vos messages privés puis masque/ferme le fil de discussion de votre liste. | Discord, Teams | ⏳ Planifié |
 | **FEAT-04** | 🌟 **P2 (Moyenne)** | **Nettoyage des Réactions Emoji** : Retirer en masse les réactions laissées sur les messages d'autres utilisateurs. | Discord, Slack | ⏳ Planifié |
@@ -27,14 +27,12 @@ Faire de **Cleanly** la référence mobile (Android & iOS) de nettoyage et d'hyg
 
 ## 🛠️ Spécifications Détaillées des Fonctionnalités
 
-### 1. FEAT-01 : Mode Furtif / Ghosting (Anonymisation Anti-Logs)
-- **Problème résolu :** Les bots de modération de serveurs Discord interceptent les événements `MESSAGE_DELETE` et postent dans les salons `#mod-logs` le contenu intégral du message effacé.
-- **Solution technique :**
-  - Avant l'appel `DELETE /channels/{cId}/messages/{mId}`, envoyer un `PATCH /channels/{cId}/messages/{mId}` avec `{ content: "." }`.
-  - Attendre une micro-latence (100 ms).
-  - Exécuter la suppression définitive `DELETE`.
-  - Résultat : Les bots modérateurs enregistrent uniquement un point `.` ou du texte vide.
-- **Option UI :** Interrupteur switchRow ou toggle dans le panneau d'options : `[👻 Mode Furtif (Ghosting Anti-Logs)]`.
+### 1. FEAT-01 : Mode Furtif (Anti-Surveillance & Logs)
+- **Objectif :** Empêcher les outils de surveillance automatisés et salons de modération d'archiver le contenu d'origine lors de l'événement de suppression.
+- **Principe :**
+  - Anonymiser le message en amont de la commande de suppression finale.
+  - Résultat : Les outils tiers ne capturent aucune donnée personnelle lors de la suppression.
+- **Option UI :** Interrupteur switchRow ou toggle dans le panneau d'options : `[👻 Mode Furtif (Anti-Logs)]`.
 
 ---
 

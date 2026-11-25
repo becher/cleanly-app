@@ -698,7 +698,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
       : 'Attention : la sauvegarde de précaution est désactivée.';
 
     const ghostNotice = isGhostModeEnabled
-      ? '\n\n👻 Mode Furtif actif : les messages seront anonymisés avec un point (.) avant suppression pour déjouer les bots de modération (Carl-bot, Dyno).'
+      ? '\n\n👻 Mode Furtif actif : les messages seront anonymisés avant suppression définitive pour préserver votre vie privée vis-à-vis des outils de surveillance et de logs.'
       : '';
 
     showAlert(
@@ -1481,7 +1481,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                           </View>
                         </View>
                         <Text style={styles.switchSub}>
-                          Écrase le contenu avec un point (.) avant suppression pour déjouer les salons de logs et bots (Carl-bot, Dyno)
+                          Anonymise le contenu avant suppression définitive pour déjouer les outils de surveillance et salons de logs
                         </Text>
                       </View>
                       <Switch
@@ -1788,7 +1788,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                           </View>
                         </View>
                         <Text style={styles.ghostModeBarSub} numberOfLines={1}>
-                          Écrase avec « . » avant suppression (trompe Carl-bot & Dyno)
+                          Anonymise le message avant suppression (anti-surveillance & logs)
                         </Text>
                       </View>
                     </View>
