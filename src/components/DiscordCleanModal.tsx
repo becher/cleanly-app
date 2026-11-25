@@ -24,6 +24,7 @@ import { theme } from '../constants/theme';
 import { useHistoryStore } from '../store/historyStore';
 import { shareMessagesBackup, saveBackupLocally } from '../utils/backupService';
 import { CustomAlertModal, CustomAlertButton } from './CustomAlertModal';
+import { cleanNotificationService } from '../services/cleanNotificationService';
 import {
   getDiscordGuilds,
   getDiscordChannels,
@@ -769,6 +770,15 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     const messagesToDelete = scannedMessages.filter((m) => selectedMessageIds.has(m.id));
     let count = 0;
 
+    // Démarre la notification persistante d'arrière-plan (Foreground Service Android & iOS)
+    await cleanNotificationService.requestPermission();
+    await cleanNotificationService.startCleanProgress({
+      platform: 'discord',
+      targetCount: messagesToDelete.length,
+      initialCount: 0,
+      isGhostMode: isGhostModeEnabled,
+    });
+
     for (let i = 0; i < messagesToDelete.length; i++) {
       if (stopRef.current) break;
 
@@ -794,6 +804,14 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
         await deleteDiscordMessage(token, msg.channel_id, msg.id, speedDelayMs);
         count++;
         setDeletedCount(count);
+
+        // Mise à jour de la notification native d'arrière-plan
+        cleanNotificationService.updateCleanProgress({
+          platform: 'discord',
+          currentCount: count,
+          targetCount: messagesToDelete.length,
+          isPaused: false,
+        });
       } catch (err) {
         console.warn('Erreur suppression message:', err);
       }
@@ -802,10 +820,24 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     if (!stopRef.current) {
       setDeletedCount(messagesToDelete.length);
       setCurrentStatus('✅ Nettoyage terminé avec succès !');
+
+      // Notification finale de succès avec vibration / son
+      await cleanNotificationService.notifyCleanComplete({
+        platform: 'discord',
+        deletedCount: count,
+      });
+
       // Laisser l'utilisateur admirer la barre pleine à 100% et le compteur complet pendant exactement 1 seconde
       await new Promise<void>((resolve) => setTimeout(() => resolve(), 1000));
     } else {
       setCurrentStatus(`Arrêt demandé : ${formatCount(count, 'message supprimé', 'messages supprimés')}.`);
+
+      // Notification d'interruption
+      await cleanNotificationService.notifyCleanStopped({
+        platform: 'discord',
+        deletedCount: count,
+      });
+
       await new Promise<void>((resolve) => setTimeout(() => resolve(), 800));
     }
 
@@ -827,6 +859,14 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     const next = !isPaused;
     setIsPaused(next);
     pauseRef.current = next;
+
+    const total = scannedMessages.filter((m) => selectedMessageIds.has(m.id)).length;
+    cleanNotificationService.updateCleanProgress({
+      platform: 'discord',
+      currentCount: deletedCount,
+      targetCount: total,
+      isPaused: next,
+    });
   };
 
   const stopDeletion = () => {
