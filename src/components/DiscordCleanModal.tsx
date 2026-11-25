@@ -1375,98 +1375,152 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
             {/* ================= ÉTAPE 4 : PRÉVISUALISATION DES MESSAGES ================= */}
             {step === 'preview_messages' && (
               <View style={{ flex: 1 }}>
-                <View style={styles.previewHeader}>
-                  <View>
-                    <Text style={styles.previewTitle}>
-                      🎯 {scannedMessages.length} message(s) trouvé(s)
-                    </Text>
-                    <Text style={styles.previewSub}>
-                      {selectedMessageIds.size} sélectionné(s) • ~{estimatedSeconds}s de suppression
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    style={[
-                      styles.previewCheckboxBtn,
-                      isAllFilteredMessagesSelected && styles.previewCheckboxBtnActive,
-                    ]}
-                    onPress={toggleAllMessages}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={
-                        isAllFilteredMessagesSelected
-                          ? 'checkbox'
-                          : isSomeFilteredMessagesSelected
-                          ? 'remove-circle'
-                          : 'square-outline'
-                      }
-                      size={20}
-                      color={
-                        isAllFilteredMessagesSelected || isSomeFilteredMessagesSelected
-                          ? theme.accent.red
-                          : theme.text.muted
-                      }
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text
-                      style={[
-                        styles.previewCheckboxText,
-                        isAllFilteredMessagesSelected && styles.previewCheckboxTextActive,
-                      ]}
-                    >
-                      {isAllFilteredMessagesSelected ? 'Tous cochés' : 'Tout cocher'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Zone de recherche / filtre des messages trouvés */}
-                <View style={[styles.filterSearchBarBox, { marginHorizontal: 16, marginTop: 8, marginBottom: 8 }]}>
-                  <Ionicons name="search" size={17} color={theme.text.muted} style={{ marginRight: 8 }} />
-                  <TextInput
-                    style={styles.filterSearchInput}
-                    placeholder="Filtrer dans les messages trouvés..."
-                    placeholderTextColor={theme.text.muted}
-                    value={messageSearch}
-                    onChangeText={setMessageSearch}
-                  />
-                  {messageSearch.length > 0 && (
-                    <TouchableOpacity
-                      onPress={() => setMessageSearch('')}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="close-circle" size={18} color={theme.text.muted} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Case à cocher : Sauvegarder les messages avant suppression (Backup) */}
-                <TouchableOpacity
-                  style={[styles.backupCheckboxBar, isBackupEnabled && styles.backupCheckboxBarActive]}
-                  onPress={() => setIsBackupEnabled(!isBackupEnabled)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons
-                    name={isBackupEnabled ? 'checkbox' : 'square-outline'}
-                    size={22}
-                    color={isBackupEnabled ? '#5865F2' : theme.text.muted}
-                    style={{ marginRight: 10 }}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.backupCheckboxTitle, isBackupEnabled && styles.backupCheckboxTitleActive]}>
-                      Sauvegarder les messages (Backup)
-                    </Text>
-                    <Text style={styles.backupCheckboxSub} numberOfLines={1}>
-                      Archiver dans Cleanly pour relire ou exporter plus tard
-                    </Text>
-                  </View>
-                  {isBackupEnabled && (
-                    <View style={styles.backupActiveBadge}>
-                      <Text style={styles.backupActiveBadgeText}>ARCHIVE ACTIVE</Text>
+                {/* 1. ZONE FIXE EN HAUT : RÉCAPITULATIF + FILTRE DE RECHERCHE + CHECKBOX TABLEAU + RADIOBOX BACKUP */}
+                <View style={styles.previewTopFilterContainer}>
+                  {/* En-tête : Titre & Compteur global */}
+                  <View style={styles.previewHeaderCompact}>
+                    <View>
+                      <Text style={styles.previewTitle}>
+                        🎯 {scannedMessages.length} message(s) trouvé(s)
+                      </Text>
+                      <Text style={styles.previewSub}>
+                        {selectedMessageIds.size} sélectionné(s) • ~{estimatedSeconds}s de suppression
+                      </Text>
                     </View>
-                  )}
-                </TouchableOpacity>
+                    <View style={styles.tableStatsBadge}>
+                      <Text style={styles.tableStatsBadgeText}>
+                        {selectedMessageIds.size} / {scannedMessages.length}
+                      </Text>
+                    </View>
+                  </View>
 
-                <ScrollView style={styles.pageContent} showsVerticalScrollIndicator={false}>
+                  {/* Zone de Recherche = LE FILTRE EN HAUT */}
+                  <View style={[styles.filterSearchBarBox, { marginTop: 4, marginBottom: 8 }]}>
+                    <Ionicons name="search" size={17} color={theme.text.muted} style={{ marginRight: 8 }} />
+                    <TextInput
+                      style={styles.filterSearchInput}
+                      placeholder="Filtrer dans les messages trouvés..."
+                      placeholderTextColor={theme.text.muted}
+                      value={messageSearch}
+                      onChangeText={setMessageSearch}
+                    />
+                    {messageSearch.length > 0 && (
+                      <TouchableOpacity
+                        onPress={() => setMessageSearch('')}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="close-circle" size={18} color={theme.text.muted} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* Barre de contrôle du tableau : Tout Cocher / Décocher */}
+                  <View style={styles.tableHeaderRow}>
+                    <TouchableOpacity
+                      style={styles.tableSelectAllBtn}
+                      onPress={toggleAllMessages}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={
+                          isAllFilteredMessagesSelected
+                            ? 'checkbox'
+                            : isSomeFilteredMessagesSelected
+                            ? 'remove-circle'
+                            : 'square-outline'
+                        }
+                        size={22}
+                        color={
+                          isAllFilteredMessagesSelected || isSomeFilteredMessagesSelected
+                            ? theme.accent.red
+                            : theme.text.muted
+                        }
+                        style={{ marginRight: 8 }}
+                      />
+                      <Text
+                        style={[
+                          styles.tableSelectAllText,
+                          (isAllFilteredMessagesSelected || isSomeFilteredMessagesSelected) && {
+                            color: theme.accent.red,
+                            fontWeight: '700',
+                          },
+                        ]}
+                      >
+                        {isAllFilteredMessagesSelected
+                          ? 'Tous les messages cochés'
+                          : isSomeFilteredMessagesSelected
+                          ? 'Sélection partielle'
+                          : 'Tout cocher'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <Text style={styles.previewShowingCountText}>
+                      {filteredScannedMessages.length} affiché(s)
+                    </Text>
+                  </View>
+
+                  {/* Options de Sauvegarde (Radiobox au lieu de Checkbox) */}
+                  <View style={styles.backupRadioGroup}>
+                    <Text style={styles.backupRadioGroupLabel}>SAUVEGARDE DE SÉCURITÉ (BACKUP) :</Text>
+                    <View style={styles.backupRadioRow}>
+                      <TouchableOpacity
+                        style={[
+                          styles.backupRadioItem,
+                          isBackupEnabled && styles.backupRadioItemActive,
+                        ]}
+                        onPress={() => setIsBackupEnabled(true)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons
+                          name={isBackupEnabled ? 'radio-button-on' : 'radio-button-off'}
+                          size={18}
+                          color={isBackupEnabled ? '#10B981' : theme.text.muted}
+                          style={{ marginRight: 6 }}
+                        />
+                        <Text
+                          style={[
+                            styles.backupRadioItemText,
+                            isBackupEnabled && styles.backupRadioItemTextActive,
+                          ]}
+                        >
+                          Sauvegarder l’archive
+                        </Text>
+                        {isBackupEnabled && (
+                          <View style={styles.backupRadioMiniBadge}>
+                            <Ionicons name="shield-checkmark" size={12} color="#10B981" />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.backupRadioItem,
+                          !isBackupEnabled && styles.backupRadioItemActiveDanger,
+                        ]}
+                        onPress={() => setIsBackupEnabled(false)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons
+                          name={!isBackupEnabled ? 'radio-button-on' : 'radio-button-off'}
+                          size={18}
+                          color={!isBackupEnabled ? theme.accent.red : theme.text.muted}
+                          style={{ marginRight: 6 }}
+                        />
+                        <Text
+                          style={[
+                            styles.backupRadioItemText,
+                            !isBackupEnabled && styles.backupRadioItemTextDanger,
+                          ]}
+                        >
+                          Sans sauvegarde
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+
+                {/* 2. ZONE BASSE SCROLLABLE : LES RÉSULTATS DU TABLEAU */}
+                <ScrollView style={styles.messagesResultScroll} showsVerticalScrollIndicator={false}>
                   {filteredScannedMessages.length === 0 ? (
                     <View style={styles.emptyTableBox}>
                       <Ionicons name="filter-outline" size={36} color={theme.text.muted} />
@@ -3000,5 +3054,82 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#5865F2',
     letterSpacing: 0.5,
+  },
+  // Nouveaux styles pour preview_messages (Filtre en haut, radiobox backup, résultats en bas)
+  previewTopFilterContainer: {
+    backgroundColor: theme.bg.base,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border.subtle,
+  },
+  previewHeaderCompact: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  previewShowingCountText: {
+    fontSize: 11,
+    color: theme.text.muted,
+    fontWeight: '600',
+  },
+  backupRadioGroup: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: theme.border.subtle,
+  },
+  backupRadioGroupLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: theme.text.muted,
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  backupRadioRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  backupRadioItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+  },
+  backupRadioItemActive: {
+    borderColor: '#10B981',
+    backgroundColor: '#10B9810C',
+  },
+  backupRadioItemActiveDanger: {
+    borderColor: theme.accent.red,
+    backgroundColor: '#FA3E3E0C',
+  },
+  backupRadioItemText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.text.secondary,
+  },
+  backupRadioItemTextActive: {
+    color: '#10B981',
+    fontWeight: '700',
+  },
+  backupRadioItemTextDanger: {
+    color: theme.accent.red,
+    fontWeight: '700',
+  },
+  backupRadioMiniBadge: {
+    marginLeft: 4,
+  },
+  messagesResultScroll: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 10,
   },
 });
