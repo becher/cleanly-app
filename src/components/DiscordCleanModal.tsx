@@ -34,6 +34,7 @@ import {
   deleteDiscordMessage,
   editDiscordMessage,
   closeDiscordDMChannel,
+  deleteDiscordReaction,
   searchDiscordGuildMessages,
   DiscordGuild,
   DiscordChannel,
@@ -169,6 +170,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
   const [messageSearch, setMessageSearch] = useState('');
   const [filterPIIOnly, setFilterPIIOnly] = useState(false); // FEAT-02 : Filtre Données Sensibles (PII Shield)
   const [autoCloseDMs, setAutoCloseDMs] = useState(false); // FEAT-03 : Fermeture automatique des DMs nettoyés
+  const [isCleanReactionsEnabled, setIsCleanReactionsEnabled] = useState(true); // FEAT-04 : Nettoyage Réactions Emojis
   const [isBackupEnabled, setIsBackupEnabled] = useState(true);
 
   // Exécution de la suppression
@@ -815,6 +817,19 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
       );
 
       try {
+        // FEAT-04 : Retirer mes réactions emoji posées
+        if (isCleanReactionsEnabled && Array.isArray(msg.reactions)) {
+          for (const r of msg.reactions) {
+            if (r.me) {
+              try {
+                await deleteDiscordReaction(token, msg.channel_id, msg.id, r.emoji);
+              } catch (e) {
+                // Ignorer
+              }
+            }
+          }
+        }
+
         if (isGhostModeEnabled) {
           // Écrase le message avec '.' pour tromper les bots de logs avant suppression
           await editDiscordMessage(token, msg.channel_id, msg.id, '.');
@@ -1791,6 +1806,26 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                               <View style={styles.mediaBadge}>
                                 <Ionicons name="image" size={12} color="#5865F2" style={{ marginRight: 4 }} />
                                 <Text style={styles.mediaBadgeText}>{formatCount(msg.attachments.length, 'fichier', 'fichiers')}</Text>
+                              </View>
+                            )}
+
+                            {/* Badges Réactions Emojis (FEAT-04) */}
+                            {msg.reactions && msg.reactions.length > 0 && (
+                              <View style={styles.reactionsRow}>
+                                {msg.reactions.map((r, rIdx) => (
+                                  <View
+                                    key={rIdx}
+                                    style={[styles.reactionBadge, r.me && styles.reactionBadgeMe]}
+                                  >
+                                    <Text style={styles.reactionEmojiText}>{r.emoji.name}</Text>
+                                    <Text style={[styles.reactionCountText, r.me && styles.reactionCountTextMe]}>
+                                      {r.count}
+                                    </Text>
+                                    {r.me && (
+                                      <Text style={styles.reactionMeIndicator}>✓</Text>
+                                    )}
+                                  </View>
+                                ))}
                               </View>
                             )}
                           </View>
@@ -4061,5 +4096,45 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '800',
     color: '#DC2626',
+  },
+  // Nouveaux styles FEAT-04 : Réactions Emojis
+  reactionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 5,
+  },
+  reactionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.bg.raised,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+  },
+  reactionBadgeMe: {
+    backgroundColor: '#5865F215',
+    borderColor: '#5865F240',
+  },
+  reactionEmojiText: {
+    fontSize: 12,
+    marginRight: 3,
+  },
+  reactionCountText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: theme.text.secondary,
+  },
+  reactionCountTextMe: {
+    color: '#5865F2',
+    fontWeight: '700',
+  },
+  reactionMeIndicator: {
+    fontSize: 8,
+    color: '#5865F2',
+    fontWeight: '900',
+    marginLeft: 2,
   },
 });

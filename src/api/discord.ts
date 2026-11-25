@@ -31,6 +31,11 @@ export type DiscordMessage = {
   };
   attachments?: Array<{ id: string; url: string; filename?: string }>;
   pinned?: boolean;
+  reactions?: Array<{
+    emoji: { id: string | null; name: string };
+    count: number;
+    me: boolean;
+  }>;
 };
 
 export type DiscordChannel = {
@@ -114,6 +119,32 @@ export async function closeDiscordDMChannel(token: string, channelId: string): P
 
     if (!response.ok && response.status !== 404) {
       throwDiscordError(response.status, 'closeDM');
+    }
+  }, 'discord');
+}
+
+/**
+ * Supprime la réaction posée par l'utilisateur sur un message (FEAT-04 Roadmap Cleanly)
+ */
+export async function deleteDiscordReaction(
+  token: string,
+  channelId: string,
+  messageId: string,
+  emoji: { id: string | null; name: string }
+): Promise<void> {
+  return runWith429Retry(async () => {
+    // Si l'emoji est personnalisé, le format Discord est name:id, sinon le nom unicode brut
+    const emojiParam = emoji.id ? `${emoji.name}:${emoji.id}` : emoji.name;
+    const response = await fetch(
+      `${DISCORD_API}/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emojiParam)}/@me`,
+      {
+        method: 'DELETE',
+        headers: getHeaders(token),
+      }
+    );
+
+    if (!response.ok && response.status !== 404) {
+      throwDiscordError(response.status, 'deleteReaction');
     }
   }, 'discord');
 }
