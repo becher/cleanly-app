@@ -25,6 +25,7 @@ import { useHistoryStore } from '../store/historyStore';
 import { shareMessagesBackup, saveBackupLocally } from '../utils/backupService';
 import { CustomAlertModal, CustomAlertButton } from './CustomAlertModal';
 import { cleanNotificationService } from '../services/cleanNotificationService';
+import { detectPII } from '../utils/piiDetector';
 import {
   getDiscordGuilds,
   getDiscordChannels,
@@ -32,6 +33,7 @@ import {
   getDiscordMessages,
   deleteDiscordMessage,
   editDiscordMessage,
+  closeDiscordDMChannel,
   searchDiscordGuildMessages,
   DiscordGuild,
   DiscordChannel,
@@ -165,6 +167,8 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
   const [scannedMessages, setScannedMessages] = useState<DiscordMessage[]>([]);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
   const [messageSearch, setMessageSearch] = useState('');
+  const [filterPIIOnly, setFilterPIIOnly] = useState(false); // FEAT-02 : Filtre Données Sensibles (PII Shield)
+  const [autoCloseDMs, setAutoCloseDMs] = useState(false); // FEAT-03 : Fermeture automatique des DMs nettoyés
   const [isBackupEnabled, setIsBackupEnabled] = useState(true);
 
   // Exécution de la suppression
@@ -588,24 +592,40 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     setSelectedMessageIds(new Set());
   };
 
-  // Filtrer les messages trouvés selon la recherche locale
+  // FEAT-02 : Nombre de messages contenant des données personnelles sensibles (PII Shield)
+  const piiMessagesCount = useMemo(() => {
+    return scannedMessages.filter((m) => detectPII(m.content).hasPII).length;
+  }, [scannedMessages]);
+
+  // Filtrer les messages trouvés selon la recherche locale et le filtre PII Shield
   const filteredScannedMessages = useMemo(() => {
-    if (!messageSearch.trim()) return scannedMessages;
-    const q = messageSearch.toLowerCase();
-    return scannedMessages.filter(
-      (m) =>
-        m.content?.toLowerCase().includes(q) ||
-        m.channel_name?.toLowerCase().includes(q)
-    );
-  }, [scannedMessages, messageSearch]);
+    let result = scannedMessages;
+
+    // 1. Filtre PII Shield Données Sensibles
+    if (filterPIIOnly) {
+      result = result.filter((m) => detectPII(m.content).hasPII);
+    }
+
+    // 2. Filtre de recherche textuelle
+    if (messageSearch.trim()) {
+      const q = messageSearch.toLowerCase();
+      result = result.filter(
+        (m) =>
+          m.content?.toLowerCase().includes(q) ||
+          m.channel_name?.toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  }, [scannedMessages, messageSearch, filterPIIOnly]);
 
   // Nombre de messages cochés PARMI ceux visibles dans le filtre de recherche
   const selectedFilteredCount = useMemo(() => {
     return filteredScannedMessages.filter((m) => selectedMessageIds.has(m.id)).length;
   }, [filteredScannedMessages, selectedMessageIds]);
 
-  // Savoir si un filtre de recherche est actuellement actif
-  const isMessageFilterActive = messageSearch.trim().length > 0;
+  // Savoir si un filtre de recherche ou PII est actuellement actif
+  const isMessageFilterActive = messageSearch.trim().length > 0 || filterPIIOnly;
 
   // Sélectionner UNIQUEMENT les messages filtrés (ajuste la sélection aux résultats du filtre)
   const selectOnlyFilteredMessages = () => {
@@ -820,6 +840,19 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     if (!stopRef.current) {
       setDeletedCount(messagesToDelete.length);
       setCurrentStatus('✅ Nettoyage terminé avec succès !');
+
+      // FEAT-03 : Fermeture automatique des DMs nettoyés si l'option est activée
+      if (autoCloseDMs && selectedGuild?.id === '@me') {
+        setCurrentStatus('🔒 Masquage et fermeture des DMs nettoyés...');
+        const cleanedChannelIds = Array.from(selectedChannelIds);
+        for (const chId of cleanedChannelIds) {
+          try {
+            await closeDiscordDMChannel(token, chId);
+          } catch (e) {
+            console.warn('Erreur fermeture DM:', e);
+          }
+        }
+      }
 
       // Notification finale de succès avec vibration / son
       await cleanNotificationService.notifyCleanComplete({
@@ -1583,6 +1616,52 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     )}
                   </View>
 
+                  {/* Ligne des filtres intelligents : PII Shield (FEAT-02) */}
+                  <View style={styles.quickFiltersRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.quickFilterChip,
+                        filterPIIOnly && styles.quickFilterChipActivePII,
+                        piiMessagesCount > 0 && !filterPIIOnly && styles.quickFilterChipHasPII,
+                      ]}
+                      onPress={() => setFilterPIIOnly(!filterPIIOnly)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={filterPIIOnly ? 'shield-checkmark' : 'shield-outline'}
+                        size={13}
+                        color={filterPIIOnly ? '#DC2626' : (piiMessagesCount > 0 ? '#D97706' : theme.text.secondary)}
+                        style={{ marginRight: 5 }}
+                      />
+                      <Text
+                        style={[
+                          styles.quickFilterChipText,
+                          filterPIIOnly && styles.quickFilterChipTextActivePII,
+                          piiMessagesCount > 0 && !filterPIIOnly && { color: '#B45309', fontWeight: '700' },
+                        ]}
+                      >
+                        🛡️ Données sensibles
+                      </Text>
+                      {piiMessagesCount > 0 && (
+                        <View
+                          style={[
+                            styles.quickFilterCountBadge,
+                            filterPIIOnly ? styles.quickFilterCountBadgeActivePII : styles.quickFilterCountBadgeWarning,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.quickFilterCountText,
+                              filterPIIOnly ? styles.quickFilterCountTextActivePII : styles.quickFilterCountTextWarning,
+                            ]}
+                          >
+                            {piiMessagesCount}
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
                   {/* Barre d'en-tête du tableau : Checkbox Tout Cocher sous le filtre */}
                   <View style={styles.tableHeaderRow}>
                     <TouchableOpacity
@@ -1660,6 +1739,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                   ) : (
                     filteredScannedMessages.map((msg) => {
                       const isChecked = selectedMessageIds.has(msg.id);
+                      const piiResult = detectPII(msg.content);
                       const dateFormatted = new Date(msg.timestamp).toLocaleDateString('fr-FR', {
                         day: 'numeric',
                         month: 'short',
@@ -1670,14 +1750,18 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                       return (
                         <TouchableOpacity
                           key={msg.id}
-                          style={[styles.messageCard, isChecked && styles.messageCardSelected]}
+                          style={[
+                            styles.messageCard,
+                            isChecked && styles.messageCardSelected,
+                            !isChecked && piiResult.hasPII && styles.messageCardPIIHighlight,
+                          ]}
                           onPress={() => toggleMessage(msg.id)}
                           activeOpacity={0.8}
                         >
                           <Ionicons
                             name={isChecked ? 'checkbox' : 'square-outline'}
                             size={22}
-                            color={isChecked ? theme.accent.red : theme.text.muted}
+                            color={isChecked ? theme.accent.red : (piiResult.hasPII ? '#DC2626' : theme.text.muted)}
                             style={{ marginRight: 12, marginTop: 2 }}
                           />
                           <View style={{ flex: 1 }}>
@@ -1689,6 +1773,18 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                             <Text style={styles.messageContent} numberOfLines={3}>
                               {msg.content || '(Message sans texte / média uniquement)'}
                             </Text>
+
+                            {/* Badges PII Shield Données Sensibles (FEAT-02) */}
+                            {piiResult.hasPII && (
+                              <View style={styles.piiBadgesRow}>
+                                {piiResult.badges.map((b, idx) => (
+                                  <View key={idx} style={styles.piiTag}>
+                                    <Ionicons name="shield-alert" size={10} color="#DC2626" style={{ marginRight: 3 }} />
+                                    <Text style={styles.piiTagText}>{b}</Text>
+                                  </View>
+                                ))}
+                              </View>
+                            )}
 
                             {/* Badges médias */}
                             {msg.attachments && msg.attachments.length > 0 && (
@@ -1790,6 +1886,39 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                         />
                       </TouchableOpacity>
                     </View>
+
+                    {/* FEAT-03 : Option spécifique aux Messages Privés (DMs) */}
+                    {selectedGuild?.id === '@me' && (
+                      <TouchableOpacity
+                        style={[
+                          styles.speedCompactBar,
+                          { marginTop: 6 },
+                          autoCloseDMs && { borderColor: '#5865F260', backgroundColor: '#5865F20A' },
+                        ]}
+                        onPress={() => setAutoCloseDMs(!autoCloseDMs)}
+                        activeOpacity={0.8}
+                      >
+                        <View style={styles.speedCompactLeft}>
+                          <Ionicons
+                            name={autoCloseDMs ? 'close-circle' : 'close-circle-outline'}
+                            size={14}
+                            color={autoCloseDMs ? '#5865F2' : theme.text.secondary}
+                            style={{ marginRight: 6 }}
+                          />
+                          <Text style={styles.speedCompactLabel}>Fermer les DMs :</Text>
+                          <Text style={[styles.speedCompactValue, autoCloseDMs && { color: '#5865F2' }]}>
+                            {autoCloseDMs ? 'Masquer le fil ✓' : 'Laisser ouvert'}
+                          </Text>
+                        </View>
+                        <Switch
+                          value={autoCloseDMs}
+                          onValueChange={setAutoCloseDMs}
+                          trackColor={{ true: '#5865F2', false: theme.bg.raised }}
+                          thumbColor={autoCloseDMs ? '#FFF' : '#A0AEC0'}
+                          style={{ transform: [{ scaleX: 0.7 }, { scaleY: 0.7 }] }}
+                        />
+                      </TouchableOpacity>
+                    )}
 
                     {/* Ligne 2 : Sélecteur de méthode de suppression compact (1 seule ligne) */}
                     <TouchableOpacity
@@ -3849,5 +3978,88 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#8B5CF6',
+  },
+  // Nouveaux styles FEAT-02 : PII Shield (Filtre Données Sensibles)
+  quickFiltersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  quickFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.bg.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: theme.radius.full,
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+  },
+  quickFilterChipActivePII: {
+    backgroundColor: '#EF444415',
+    borderColor: '#EF444450',
+  },
+  quickFilterChipHasPII: {
+    borderColor: '#D9770650',
+    backgroundColor: '#FEF3C7',
+  },
+  quickFilterChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.text.secondary,
+  },
+  quickFilterChipTextActivePII: {
+    color: '#DC2626',
+    fontWeight: '700',
+  },
+  quickFilterCountBadge: {
+    backgroundColor: theme.bg.raised,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 8,
+    marginLeft: 5,
+  },
+  quickFilterCountBadgeActivePII: {
+    backgroundColor: '#DC2626',
+  },
+  quickFilterCountBadgeWarning: {
+    backgroundColor: '#D97706',
+  },
+  quickFilterCountText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: theme.text.muted,
+  },
+  quickFilterCountTextActivePII: {
+    color: '#FFF',
+  },
+  quickFilterCountTextWarning: {
+    color: '#FFF',
+  },
+  messageCardPIIHighlight: {
+    borderColor: '#F59E0B60',
+    backgroundColor: '#FFFDF5',
+  },
+  piiBadgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+    marginTop: 6,
+  },
+  piiTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EF444415',
+    borderColor: '#EF444435',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  piiTagText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#DC2626',
   },
 });

@@ -102,6 +102,23 @@ export async function getDiscordDirectMessages(token: string): Promise<DiscordCh
 }
 
 /**
+ * Ferme et masque un fil de messages privés (DM) de l'interface utilisateur Discord
+ * (FEAT-03 de la Roadmap Cleanly)
+ */
+export async function closeDiscordDMChannel(token: string, channelId: string): Promise<void> {
+  return runWith429Retry(async () => {
+    const response = await fetch(`${DISCORD_API}/channels/${channelId}`, {
+      method: 'DELETE',
+      headers: getHeaders(token),
+    });
+
+    if (!response.ok && response.status !== 404) {
+      throwDiscordError(response.status, 'closeDM');
+    }
+  }, 'discord');
+}
+
+/**
  * Récupère les messages d'un canal (max 100 par page)
  */
 export async function getDiscordMessages(

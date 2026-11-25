@@ -17,8 +17,8 @@ Faire de **Cleanly** la référence mobile (Android & iOS) de nettoyage et d'hyg
 | ID | Priorité | Fonctionnalité | Plateformes cibles | Statut |
 |---|:---:|---|:---:|:---:|
 | **FEAT-01** | 🔥 **P0 (Immédiat)** | **Mode Furtif (Anti-Surveillance & Logs)** : Anonymise et brouille le contenu avant suppression définitive pour préserver la vie privée face aux outils de surveillance et robots de salons de logs. | Discord, Reddit, Twitter | ✅ **Terminé (v1.1)** |
-| **FEAT-02** | ⚡ **P1 (Élevée)** | **Filtre Données Sensibles (PII Shield)** : Détection en 1 clic des mots de passe, tokens, clés API, emails, IBAN et liens d'invitation. | Toutes plateformes | ⏳ Planifié |
-| **FEAT-03** | ⚡ **P1 (Élevée)** | **Fermeture automatique des DMs** : Supprime vos messages privés puis masque/ferme le fil de discussion de votre liste. | Discord, Teams | ⏳ Planifié |
+| **FEAT-02** | ⚡ **P1 (Élevée)** | **Filtre Données Sensibles (PII Shield)** : Détection en 1 clic des mots de passe, tokens, clés API, emails, IBAN et coordonnées personnelles. | Toutes plateformes | ✅ **Terminé (v1.2)** |
+| **FEAT-03** | ⚡ **P1 (Élevée)** | **Fermeture automatique des DMs** : Supprime vos messages privés puis masque/ferme le fil de discussion de votre liste. | Discord, Teams | ✅ **Terminé (v1.2)** |
 | **FEAT-04** | 🌟 **P2 (Moyenne)** | **Nettoyage des Réactions Emoji** : Retirer en masse les réactions laissées sur les messages d'autres utilisateurs. | Discord, Slack | ⏳ Planifié |
 | **FEAT-05** | 🌟 **P2 (Moyenne)** | **Import de Package de Données Officiel (ZIP/JSON)** : Contourne les limites des API pour supprimer l'historique complet depuis le 1er jour. | Discord, Twitter, Reddit | ⏳ Planifié |
 | **FEAT-06** | 📅 **P3 (Évolution)** | **Auto-Clean Programmé (Règle de rétention)** : Tâche d'arrière-plan hebdomadaire ou mensuelle pour purger les messages anciens. | Multi-réseaux | ⏳ Planifié |
