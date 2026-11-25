@@ -543,6 +543,19 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     );
   }, [scannedMessages, messageSearch]);
 
+  // Nombre de messages cochés PARMI ceux visibles dans le filtre de recherche
+  const selectedFilteredCount = useMemo(() => {
+    return filteredScannedMessages.filter((m) => selectedMessageIds.has(m.id)).length;
+  }, [filteredScannedMessages, selectedMessageIds]);
+
+  // Savoir si un filtre de recherche est actuellement actif
+  const isMessageFilterActive = messageSearch.trim().length > 0;
+
+  // Sélectionner UNIQUEMENT les messages filtrés (ajuste la sélection aux résultats du filtre)
+  const selectOnlyFilteredMessages = () => {
+    setSelectedMessageIds(new Set(filteredScannedMessages.map((m) => m.id)));
+  };
+
   const isAllFilteredMessagesSelected =
     filteredScannedMessages.length > 0 &&
     filteredScannedMessages.every((m) => selectedMessageIds.has(m.id));
@@ -1377,19 +1390,25 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
               <View style={{ flex: 1 }}>
                 {/* 1. ZONE FIXE EN HAUT : RÉCAPITULATIF + FILTRE DE RECHERCHE + CHECKBOX TABLEAU + RADIOBOX BACKUP */}
                 <View style={styles.previewTopFilterContainer}>
-                  {/* En-tête : Titre & Compteur global */}
+                  {/* En-tête : Titre & Compteur global synchronisés avec le filtre */}
                   <View style={styles.previewHeaderCompact}>
-                    <View>
+                    <View style={{ flex: 1, marginRight: 8 }}>
                       <Text style={styles.previewTitle}>
-                        🎯 {scannedMessages.length} message(s) trouvé(s)
+                        {isMessageFilterActive
+                          ? `🎯 ${filteredScannedMessages.length} message(s) filtré(s)`
+                          : `🎯 ${scannedMessages.length} message(s) trouvé(s)`}
                       </Text>
                       <Text style={styles.previewSub}>
-                        {selectedMessageIds.size} sélectionné(s) • ~{estimatedSeconds}s de suppression
+                        {isMessageFilterActive
+                          ? `${selectedFilteredCount} sélectionné(s) dans le filtre • ${selectedMessageIds.size} au total`
+                          : `${selectedMessageIds.size} sélectionné(s) • ~${estimatedSeconds}s de suppression`}
                       </Text>
                     </View>
-                    <View style={styles.tableStatsBadge}>
-                      <Text style={styles.tableStatsBadgeText}>
-                        {selectedMessageIds.size} / {scannedMessages.length}
+                    <View style={[styles.tableStatsBadge, isMessageFilterActive && styles.tableStatsBadgeFiltered]}>
+                      <Text style={[styles.tableStatsBadgeText, isMessageFilterActive && styles.tableStatsBadgeTextFiltered]}>
+                        {isMessageFilterActive
+                          ? `${selectedFilteredCount} / ${filteredScannedMessages.length}`
+                          : `${selectedMessageIds.size} / ${scannedMessages.length}`}
                       </Text>
                     </View>
                   </View>
@@ -1414,7 +1433,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     )}
                   </View>
 
-                  {/* Barre de contrôle du tableau : Tout Cocher / Décocher */}
+                  {/* Barre de contrôle du tableau : Tout Cocher / Décocher synchronisé */}
                   <View style={styles.tableHeaderRow}>
                     <TouchableOpacity
                       style={styles.tableSelectAllBtn}
@@ -1447,47 +1466,93 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                         ]}
                       >
                         {isAllFilteredMessagesSelected
-                          ? 'Tous les messages cochés'
+                          ? isMessageFilterActive
+                            ? `Tous les ${filteredScannedMessages.length} filtrés cochés`
+                            : 'Tous les messages cochés'
                           : isSomeFilteredMessagesSelected
-                          ? 'Sélection partielle'
+                          ? `Sélection partielle (${selectedFilteredCount}/${filteredScannedMessages.length})`
+                          : isMessageFilterActive
+                          ? `Cocher les ${filteredScannedMessages.length} filtrés`
                           : 'Tout cocher'}
                       </Text>
                     </TouchableOpacity>
 
-                    <Text style={styles.previewShowingCountText}>
-                      {filteredScannedMessages.length} affiché(s)
-                    </Text>
+                    {/* Action rapide : isoler la sélection aux seuls messages filtrés */}
+                    {isMessageFilterActive && selectedMessageIds.size > selectedFilteredCount ? (
+                      <TouchableOpacity
+                        onPress={selectOnlyFilteredMessages}
+                        style={styles.isolateFilterBtn}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="funnel" size={11} color="#5865F2" style={{ marginRight: 4 }} />
+                        <Text style={styles.isolateFilterBtnText}>
+                          Garder uniquement ces {filteredScannedMessages.length}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <Text style={styles.previewShowingCountText}>
+                        {filteredScannedMessages.length} affiché(s)
+                      </Text>
+                    )}
                   </View>
 
-                  {/* Option de Sauvegarde de précaution avec Switch (switchRow) */}
-                  <View style={styles.backupSwitchRow}>
-                    <View style={{ flex: 1, marginRight: 12 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  {/* Options de Sauvegarde (Radiobox) */}
+                  <View style={styles.backupRadioGroup}>
+                    <Text style={styles.backupRadioGroupLabel}>SAUVEGARDE DE SÉCURITÉ (BACKUP) :</Text>
+                    <View style={styles.backupRadioRow}>
+                      <TouchableOpacity
+                        style={[
+                          styles.backupRadioItem,
+                          isBackupEnabled && styles.backupRadioItemActive,
+                        ]}
+                        onPress={() => setIsBackupEnabled(true)}
+                        activeOpacity={0.8}
+                      >
                         <Ionicons
-                          name={isBackupEnabled ? 'shield-checkmark' : 'shield-outline'}
-                          size={15}
+                          name={isBackupEnabled ? 'radio-button-on' : 'radio-button-off'}
+                          size={18}
                           color={isBackupEnabled ? '#10B981' : theme.text.muted}
                           style={{ marginRight: 6 }}
                         />
-                        <Text style={[styles.switchTitle, isBackupEnabled && { color: '#10B981', fontWeight: '700' }]}>
-                          Sauvegarde de précaution
+                        <Text
+                          style={[
+                            styles.backupRadioItemText,
+                            isBackupEnabled && styles.backupRadioItemTextActive,
+                          ]}
+                        >
+                          Sauvegarder l’archive
                         </Text>
                         {isBackupEnabled && (
-                          <View style={styles.backupActiveBadge}>
-                            <Text style={styles.backupActiveBadgeText}>ARCHIVE ACTIVE</Text>
+                          <View style={styles.backupRadioMiniBadge}>
+                            <Ionicons name="shield-checkmark" size={12} color="#10B981" />
                           </View>
                         )}
-                      </View>
-                      <Text style={styles.switchSub} numberOfLines={1}>
-                        Archiver dans Cleanly pour relire ou exporter plus tard
-                      </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.backupRadioItem,
+                          !isBackupEnabled && styles.backupRadioItemActiveDanger,
+                        ]}
+                        onPress={() => setIsBackupEnabled(false)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons
+                          name={!isBackupEnabled ? 'radio-button-on' : 'radio-button-off'}
+                          size={18}
+                          color={!isBackupEnabled ? theme.accent.red : theme.text.muted}
+                          style={{ marginRight: 6 }}
+                        />
+                        <Text
+                          style={[
+                            styles.backupRadioItemText,
+                            !isBackupEnabled && styles.backupRadioItemTextDanger,
+                          ]}
+                        >
+                          Sans sauvegarde
+                        </Text>
+                      </TouchableOpacity>
                     </View>
-                    <Switch
-                      value={isBackupEnabled}
-                      onValueChange={setIsBackupEnabled}
-                      trackColor={{ true: '#10B981', false: theme.bg.raised }}
-                      thumbColor="#FFF"
-                    />
                   </View>
                 </View>
 
@@ -1678,6 +1743,23 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     )}
                   </View>
 
+                  {/* Bandeau de synchronisation si un filtre est actif avec des messages hors filtre */}
+                  {isMessageFilterActive && selectedMessageIds.size > selectedFilteredCount && (
+                    <View style={styles.filterSyncWarningBar}>
+                      <Ionicons name="information-circle" size={15} color="#D97706" style={{ marginRight: 6 }} />
+                      <Text style={styles.filterSyncWarningText} numberOfLines={1}>
+                        {selectedFilteredCount} sélectionné(s) visible(s) • {selectedMessageIds.size - selectedFilteredCount} autre(s) hors filtre
+                      </Text>
+                      <TouchableOpacity
+                        onPress={selectOnlyFilteredMessages}
+                        style={styles.filterSyncWarningBtn}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.filterSyncWarningBtnText}>Garder ces {selectedFilteredCount}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
                   {/* Bouton d'action final */}
                   <TouchableOpacity
                     style={[styles.deleteBtn, selectedMessageIds.size === 0 && { opacity: 0.5 }]}
@@ -1687,7 +1769,11 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                   >
                     <Ionicons name="trash" size={20} color="#FFF" style={{ marginRight: 8 }} />
                     <Text style={styles.deleteBtnText}>
-                      Supprimer {selectedMessageIds.size} message{selectedMessageIds.size > 1 ? 's' : ''}
+                      {isMessageFilterActive && selectedMessageIds.size === selectedFilteredCount
+                        ? `Supprimer les ${selectedFilteredCount} message(s) filtré(s)`
+                        : isMessageFilterActive
+                        ? `Supprimer ${selectedMessageIds.size} message(s) (${selectedFilteredCount} filtrés)`
+                        : `Supprimer ${selectedMessageIds.size} message${selectedMessageIds.size > 1 ? 's' : ''}`}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -3047,17 +3133,109 @@ const styles = StyleSheet.create({
     color: theme.text.muted,
     fontWeight: '600',
   },
-  backupSwitchRow: {
+  tableStatsBadgeFiltered: {
+    backgroundColor: '#8B5CF618',
+    borderColor: '#8B5CF640',
+  },
+  tableStatsBadgeTextFiltered: {
+    color: '#8B5CF6',
+  },
+  isolateFilterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#5865F212',
+    borderWidth: 1,
+    borderColor: '#5865F230',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.full,
+  },
+  isolateFilterBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#5865F2',
+  },
+  backupRadioGroup: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: theme.border.subtle,
+  },
+  backupRadioGroupLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: theme.text.muted,
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  backupRadioRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  backupRadioItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+  },
+  backupRadioItemActive: {
+    borderColor: '#10B981',
+    backgroundColor: '#10B9810C',
+  },
+  backupRadioItemActiveDanger: {
+    borderColor: theme.accent.red,
+    backgroundColor: '#FA3E3E0C',
+  },
+  backupRadioItemText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.text.secondary,
+  },
+  backupRadioItemTextActive: {
+    color: '#10B981',
+    fontWeight: '700',
+  },
+  backupRadioItemTextDanger: {
+    color: theme.accent.red,
+    fontWeight: '700',
+  },
+  backupRadioMiniBadge: {
+    marginLeft: 4,
+  },
+  filterSyncWarningBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFF',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: theme.radius.md,
-    marginTop: 8,
+    backgroundColor: '#FEF3C7',
     borderWidth: 1,
-    borderColor: theme.border.subtle,
+    borderColor: '#F59E0B40',
+    borderRadius: theme.radius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginBottom: 8,
+  },
+  filterSyncWarningText: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#92400E',
+    marginRight: 6,
+  },
+  filterSyncWarningBtn: {
+    backgroundColor: '#D97706',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: theme.radius.sm,
+  },
+  filterSyncWarningBtnText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFF',
   },
   messagesResultScroll: {
     flex: 1,
