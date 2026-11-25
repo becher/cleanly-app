@@ -1999,78 +1999,29 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                   </View>
                 </View>
 
-                {/* 5. Console d'activité en temps réel (Live Process Console) */}
-                <View style={styles.liveConsoleCard}>
-                  <View style={styles.liveConsoleHeader}>
-                    <View style={styles.livePulseDot} />
-                    <Text style={styles.liveConsoleHeaderTitle}>TRAITEMENT EN DIRECT</Text>
-                    <View style={{ flex: 1 }} />
-                    <View style={styles.liveSpeedBadge}>
-                      <Ionicons
-                        name={speedDelayMs === 1000 ? 'shield-checkmark' : 'speedometer-outline'}
-                        size={11}
-                        color={speedDelayMs === 1000 ? '#10B981' : '#5865F2'}
-                        style={{ marginRight: 3 }}
-                      />
-                      <Text style={[styles.liveSpeedBadgeText, speedDelayMs === 1000 && { color: '#10B981' }]}>
-                        {speedDelayMs === 1000 ? 'Anti-ban 1s' : `${speedDelayMs}ms`}
-                      </Text>
-                {/* 5. Badges de protection et options actives */}
+                {/* 5. Badges des options actives */}
                 <View style={styles.liveSecurityTagsRow}>
                   {speedDelayMs === 1000 ? (
                     <View style={styles.liveSecurityTag}>
-                      <Ionicons name="shield-checkmark" size={12} color="#10B981" style={{ marginRight: 5 }} />
-                      <Text style={styles.liveSecurityTagText}>Protection Anti-ban active (1s)</Text>
+                      <Ionicons name="shield-checkmark" size={11} color="#10B981" style={{ marginRight: 4 }} />
+                      <Text style={styles.liveSecurityTagText}>Protection Anti-ban (1s)</Text>
                     </View>
-                  </View>
-
-                  <Text
-                    style={[
-                      styles.liveConsoleMessage,
-                      percent === 100 && { color: '#10B981', fontWeight: '600' },
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {currentStatus || 'Initialisation du processus...'}
-                  </Text>
-
-                  {/* Badges de protection et options actives */}
-                  <View style={styles.liveSecurityTagsRow}>
-                    {speedDelayMs === 1000 && (
-                      <View style={styles.liveSecurityTag}>
-                        <Ionicons name="shield-checkmark" size={11} color="#10B981" style={{ marginRight: 4 }} />
-                        <Text style={styles.liveSecurityTagText}>Anti-ban</Text>
-                      </View>
-                    )}
-                    {isGhostModeEnabled && (
-                      <View style={[styles.liveSecurityTag, { backgroundColor: '#8B5CF612', borderColor: '#8B5CF630' }]}>
-                        <Ionicons name="eye-off" size={11} color="#8B5CF6" style={{ marginRight: 4 }} />
-                        <Text style={[styles.liveSecurityTagText, { color: '#8B5CF6' }]}>Mode Furtif</Text>
-                      </View>
-                    )}
-                    {isBackupEnabled && (
-                      <View style={[styles.liveSecurityTag, { backgroundColor: '#10B98112', borderColor: '#10B98130' }]}>
-                        <Ionicons name="save-outline" size={11} color="#10B981" style={{ marginRight: 4 }} />
-                        <Text style={[styles.liveSecurityTagText, { color: '#10B981' }]}>Sauvegarde</Text>
-                      </View>
-                    )}
-                  </View>
                   ) : (
                     <View style={[styles.liveSecurityTag, { backgroundColor: '#5865F212', borderColor: '#5865F230' }]}>
-                      <Ionicons name="speedometer-outline" size={12} color="#5865F2" style={{ marginRight: 5 }} />
+                      <Ionicons name="speedometer-outline" size={11} color="#5865F2" style={{ marginRight: 4 }} />
                       <Text style={[styles.liveSecurityTagText, { color: '#5865F2' }]}>Vitesse rapide ({speedDelayMs}ms)</Text>
                     </View>
                   )}
                   {isGhostModeEnabled && (
                     <View style={[styles.liveSecurityTag, { backgroundColor: '#8B5CF612', borderColor: '#8B5CF630' }]}>
-                      <Ionicons name="eye-off" size={12} color="#8B5CF6" style={{ marginRight: 5 }} />
-                      <Text style={[styles.liveSecurityTagText, { color: '#8B5CF6' }]}>Mode Furtif actif</Text>
+                      <Ionicons name="eye-off" size={11} color="#8B5CF6" style={{ marginRight: 4 }} />
+                      <Text style={[styles.liveSecurityTagText, { color: '#8B5CF6' }]}>Mode Furtif</Text>
                     </View>
                   )}
                   {isBackupEnabled && (
                     <View style={[styles.liveSecurityTag, { backgroundColor: '#10B98112', borderColor: '#10B98130' }]}>
-                      <Ionicons name="save-outline" size={12} color="#10B981" style={{ marginRight: 5 }} />
-                      <Text style={[styles.liveSecurityTagText, { color: '#10B981' }]}>Sauvegarde chiffrée</Text>
+                      <Ionicons name="save-outline" size={11} color="#10B981" style={{ marginRight: 4 }} />
+                      <Text style={[styles.liveSecurityTagText, { color: '#10B981' }]}>Sauvegarde</Text>
                     </View>
                   )}
                 </View>
@@ -3261,29 +3212,22 @@ const styles = StyleSheet.create({
   liveSecurityTagsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
-    justifyContent: 'center',
     gap: 8,
+    justifyContent: 'center',
     marginBottom: 24,
     width: '100%',
   },
   liveSecurityTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#10B98110',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
     backgroundColor: '#10B98112',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#10B98130',
     borderColor: '#10B98125',
   },
   liveSecurityTagText: {
-    fontSize: 10,
     fontSize: 11,
     fontWeight: '600',
     color: '#10B981',
@@ -3291,7 +3235,6 @@ const styles = StyleSheet.create({
   deletingActionButtonsRow: {
     flexDirection: 'row',
     width: '100%',
-    gap: 10,
     gap: 12,
   },
   deletingActionBtn: {
@@ -3299,24 +3242,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
     paddingVertical: 13,
     borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.border.default,
-    backgroundColor: '#FFF',
-    elevation: 1,
     borderWidth: 0,
     backgroundColor: theme.bg.raised,
   },
   deletingActionBtnResume: {
-    borderColor: '#10B981',
-    backgroundColor: '#10B9810A',
     backgroundColor: '#10B98118',
   },
   deletingActionBtnStop: {
-    borderColor: '#EF444440',
-    backgroundColor: '#EF444408',
     backgroundColor: '#EF444415',
   },
   deletingActionBtnText: {
