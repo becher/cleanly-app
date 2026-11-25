@@ -145,6 +145,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
   // Messages trouvés & Sélection individuelle
   const [scannedMessages, setScannedMessages] = useState<DiscordMessage[]>([]);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
+  const [messageSearch, setMessageSearch] = useState('');
   const [isBackupEnabled, setIsBackupEnabled] = useState(true);
 
   // Exécution de la suppression
@@ -495,14 +496,43 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     setSelectedMessageIds(new Set());
   };
 
+  // Filtrer les messages trouvés selon la recherche locale
+  const filteredScannedMessages = useMemo(() => {
+    if (!messageSearch.trim()) return scannedMessages;
+    const q = messageSearch.toLowerCase();
+    return scannedMessages.filter(
+      (m) =>
+        m.content?.toLowerCase().includes(q) ||
+        m.channel_name?.toLowerCase().includes(q)
+    );
+  }, [scannedMessages, messageSearch]);
+
+  const isAllFilteredMessagesSelected =
+    filteredScannedMessages.length > 0 &&
+    filteredScannedMessages.every((m) => selectedMessageIds.has(m.id));
+
+  const isSomeFilteredMessagesSelected =
+    !isAllFilteredMessagesSelected &&
+    filteredScannedMessages.some((m) => selectedMessageIds.has(m.id));
+
   const isAllMessagesSelected =
     scannedMessages.length > 0 && selectedMessageIds.size === scannedMessages.length;
+
   const toggleAllMessages = () => {
-    if (isAllMessagesSelected) {
-      setSelectedMessageIds(new Set());
+    const next = new Set(selectedMessageIds);
+    if (isAllFilteredFilteredSelected()) {
+      filteredScannedMessages.forEach((m) => next.delete(m.id));
     } else {
-      setSelectedMessageIds(new Set(scannedMessages.map((m) => m.id)));
+      filteredScannedMessages.forEach((m) => next.add(m.id));
     }
+    setSelectedMessageIds(next);
+  };
+
+  const isAllFilteredFilteredSelected = () => {
+    return (
+      filteredScannedMessages.length > 0 &&
+      filteredScannedMessages.every((m) => selectedMessageIds.has(m.id))
+    );
   };
 
   // Ouvrir le dialogue de sauvegarde des messages sélectionnés
@@ -1141,16 +1171,34 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     Ciblez précisément les messages à supprimer.
                   </Text>
 
-                  {/* 1. Mot-clé */}
+                  {/* 1. Mot-clé / Recherche de texte */}
                   <View style={styles.filterCard}>
-                    <Text style={styles.filterLabel}>🔍 Contient le mot ou texte :</Text>
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="Ex : mot de passe, lien, secret... (laisser vide pour tout)"
-                      placeholderTextColor={theme.text.muted}
-                      value={filterKeyword}
-                      onChangeText={setFilterKeyword}
-                    />
+                    <View style={styles.filterHeaderRow}>
+                      <Ionicons name="search-outline" size={18} color="#5865F2" style={{ marginRight: 8 }} />
+                      <Text style={styles.filterLabel}>Filtrer par mot-clé ou texte</Text>
+                    </View>
+                    <Text style={styles.filterSubDesc}>
+                      Seuls les messages contenant ce texte seront ciblés (laisser vide pour tout cibler).
+                    </Text>
+
+                    <View style={[styles.filterSearchBarBox, { marginTop: 8, marginBottom: 0 }]}>
+                      <Ionicons name="search" size={17} color={theme.text.muted} style={{ marginRight: 8 }} />
+                      <TextInput
+                        style={styles.filterSearchInput}
+                        placeholder="Ex : mot de passe, secret, lien, discord.gg..."
+                        placeholderTextColor={theme.text.muted}
+                        value={filterKeyword}
+                        onChangeText={setFilterKeyword}
+                      />
+                      {filterKeyword.length > 0 && (
+                        <TouchableOpacity
+                          onPress={() => setFilterKeyword('')}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name="close-circle" size={18} color={theme.text.muted} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
 
                   {/* 2. Ancienneté — Liste déroulante compacte */}
@@ -1303,22 +1351,22 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                   <TouchableOpacity
                     style={[
                       styles.previewCheckboxBtn,
-                      isAllMessagesSelected && styles.previewCheckboxBtnActive,
+                      isAllFilteredMessagesSelected && styles.previewCheckboxBtnActive,
                     ]}
                     onPress={toggleAllMessages}
                     activeOpacity={0.7}
                   >
                     <Ionicons
                       name={
-                        isAllMessagesSelected
+                        isAllFilteredMessagesSelected
                           ? 'checkbox'
-                          : selectedMessageIds.size > 0
+                          : isSomeFilteredMessagesSelected
                           ? 'remove-circle'
                           : 'square-outline'
                       }
                       size={20}
                       color={
-                        isAllMessagesSelected || selectedMessageIds.size > 0
+                        isAllFilteredMessagesSelected || isSomeFilteredMessagesSelected
                           ? theme.accent.red
                           : theme.text.muted
                       }
@@ -1327,12 +1375,32 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     <Text
                       style={[
                         styles.previewCheckboxText,
-                        isAllMessagesSelected && styles.previewCheckboxTextActive,
+                        isAllFilteredMessagesSelected && styles.previewCheckboxTextActive,
                       ]}
                     >
-                      {isAllMessagesSelected ? 'Tout coché' : 'Tout cocher'}
+                      {isAllFilteredMessagesSelected ? 'Tous cochés' : 'Tout cocher'}
                     </Text>
                   </TouchableOpacity>
+                </View>
+
+                {/* Zone de recherche / filtre des messages trouvés */}
+                <View style={[styles.filterSearchBarBox, { marginHorizontal: 16, marginTop: 8, marginBottom: 8 }]}>
+                  <Ionicons name="search" size={17} color={theme.text.muted} style={{ marginRight: 8 }} />
+                  <TextInput
+                    style={styles.filterSearchInput}
+                    placeholder="Filtrer dans les messages trouvés..."
+                    placeholderTextColor={theme.text.muted}
+                    value={messageSearch}
+                    onChangeText={setMessageSearch}
+                  />
+                  {messageSearch.length > 0 && (
+                    <TouchableOpacity
+                      onPress={() => setMessageSearch('')}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="close-circle" size={18} color={theme.text.muted} />
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 {/* Case à cocher : Sauvegarder les messages avant suppression (Backup) */}
@@ -1363,49 +1431,59 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                 </TouchableOpacity>
 
                 <ScrollView style={styles.pageContent} showsVerticalScrollIndicator={false}>
-                  {scannedMessages.map((msg) => {
-                    const isChecked = selectedMessageIds.has(msg.id);
-                    const dateFormatted = new Date(msg.timestamp).toLocaleDateString('fr-FR', {
-                      day: 'numeric',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    });
+                  {filteredScannedMessages.length === 0 ? (
+                    <View style={styles.emptyTableBox}>
+                      <Ionicons name="filter-outline" size={36} color={theme.text.muted} />
+                      <Text style={styles.emptyTableTitle}>Aucun message trouvé</Text>
+                      <Text style={styles.emptyTableSub}>
+                        Aucun message ne correspond à votre filtre « {messageSearch} »
+                      </Text>
+                    </View>
+                  ) : (
+                    filteredScannedMessages.map((msg) => {
+                      const isChecked = selectedMessageIds.has(msg.id);
+                      const dateFormatted = new Date(msg.timestamp).toLocaleDateString('fr-FR', {
+                        day: 'numeric',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      });
 
-                    return (
-                      <TouchableOpacity
-                        key={msg.id}
-                        style={[styles.messageCard, isChecked && styles.messageCardSelected]}
-                        onPress={() => toggleMessage(msg.id)}
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons
-                          name={isChecked ? 'checkbox' : 'square-outline'}
-                          size={22}
-                          color={isChecked ? theme.accent.red : theme.text.muted}
-                          style={{ marginRight: 12, marginTop: 2 }}
-                        />
-                        <View style={{ flex: 1 }}>
-                          <View style={styles.messageMetaRow}>
-                            <Text style={styles.messageChannel}>#{msg.channel_name}</Text>
-                            <Text style={styles.messageDate}>{dateFormatted}</Text>
-                          </View>
-
-                          <Text style={styles.messageContent} numberOfLines={3}>
-                            {msg.content || '(Message sans texte / média uniquement)'}
-                          </Text>
-
-                          {/* Badges médias */}
-                          {msg.attachments && msg.attachments.length > 0 && (
-                            <View style={styles.mediaBadge}>
-                              <Ionicons name="image" size={12} color="#5865F2" style={{ marginRight: 4 }} />
-                              <Text style={styles.mediaBadgeText}>{msg.attachments.length} fichier(s)</Text>
+                      return (
+                        <TouchableOpacity
+                          key={msg.id}
+                          style={[styles.messageCard, isChecked && styles.messageCardSelected]}
+                          onPress={() => toggleMessage(msg.id)}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons
+                            name={isChecked ? 'checkbox' : 'square-outline'}
+                            size={22}
+                            color={isChecked ? theme.accent.red : theme.text.muted}
+                            style={{ marginRight: 12, marginTop: 2 }}
+                          />
+                          <View style={{ flex: 1 }}>
+                            <View style={styles.messageMetaRow}>
+                              <Text style={styles.messageChannel}>#{msg.channel_name}</Text>
+                              <Text style={styles.messageDate}>{dateFormatted}</Text>
                             </View>
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
+
+                            <Text style={styles.messageContent} numberOfLines={3}>
+                              {msg.content || '(Message sans texte / média uniquement)'}
+                            </Text>
+
+                            {/* Badges médias */}
+                            {msg.attachments && msg.attachments.length > 0 && (
+                              <View style={styles.mediaBadge}>
+                                <Ionicons name="image" size={12} color="#5865F2" style={{ marginRight: 4 }} />
+                                <Text style={styles.mediaBadgeText}>{msg.attachments.length} fichier(s)</Text>
+                              </View>
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
                   <View style={{ height: 80 }} />
                 </ScrollView>
 
@@ -2222,6 +2300,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: theme.text.primary,
+  },
+  filterSubDesc: {
+    fontSize: 12,
+    color: theme.text.muted,
+    marginBottom: 6,
+    lineHeight: 16,
   },
   filterSubtitle: {
     fontSize: 12,
