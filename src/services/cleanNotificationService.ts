@@ -100,6 +100,15 @@ class CleanNotificationService {
         vibration: true,
       });
 
+      // 3. Canal pour l'Auto-Clean et les rappels de rétention (FEAT-06)
+      await notifee.createChannel({
+        id: 'cleanly_retention',
+        name: 'Auto-Clean & Rappels de rétention',
+        description: 'Vous avertit des messages anciens prêts à être purgés selon vos règles',
+        importance: AndroidImportance.HIGH,
+        vibration: true,
+      });
+
       this.channelsCreated = true;
     } catch (e) {
       console.warn('[CleanNotificationService] Erreur création canaux:', e);
@@ -315,6 +324,41 @@ class CleanNotificationService {
       });
     } catch (e) {
       console.warn('[CleanNotificationService] Erreur notifyCleanStopped:', e);
+    }
+  }
+
+  /**
+   * Alerte l'utilisateur que des messages anciens dépassent sa règle de rétention (FEAT-06)
+   */
+  async notifyRetentionAlert({
+    platform,
+    accountName,
+    expiredCount,
+    retentionDays,
+  }: {
+    platform: CleanPlatformType;
+    accountName: string;
+    expiredCount: number;
+    retentionDays: number;
+  }): Promise<void> {
+    try {
+      await this.initNotificationChannels();
+      const config = getPlatformConfig(platform);
+
+      await notifee.displayNotification({
+        id: `retention_${platform}`,
+        title: `🛡️ Cleanly Auto-Clean : ${expiredCount} message${expiredCount > 1 ? 's' : ''} à purger`,
+        body: `${accountName} dépasse votre politique de ${retentionDays} jours de rétention. Touchez pour nettoyer.`,
+        android: {
+          channelId: 'cleanly_retention',
+          color: config.brandColor,
+          pressAction: {
+            id: 'default',
+          },
+        },
+      });
+    } catch (e) {
+      console.warn('[CleanNotificationService] Erreur notifyRetentionAlert:', e);
     }
   }
 }

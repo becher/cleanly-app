@@ -1,8 +1,9 @@
 // Paramètres — Langue, Compte, Forfait Cleanly
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { theme } from '../constants/theme';
+import { RetentionModal } from '../components/RetentionModal';
 
 const LANGUAGES = [
   { code: 'fr', label: 'Français', flag: '🇫🇷' },
@@ -13,7 +14,8 @@ const LANGUAGES = [
 ];
 
 export function SettingsScreen() {
-  const [currentLang, setCurrentLang] = React.useState('fr');
+  const [currentLang, setCurrentLang] = useState('fr');
+  const [showRetentionModal, setShowRetentionModal] = useState(false);
 
   return (
     <ScrollView style={styles.page} showsVerticalScrollIndicator={false}>
@@ -59,6 +61,23 @@ export function SettingsScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Confidentialité & Sécurité</Text>
         <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={() => setShowRetentionModal(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="timer-outline" size={22} color="#5865F2" />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.securityTitle}>Auto-Clean & Règles de rétention</Text>
+              <Text style={styles.securityDesc}>
+                Configurez la purge automatique ou les rappels pour vos anciens messages.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.text.muted} />
+          </TouchableOpacity>
+
+          <View style={styles.borderBottom} />
+
           <View style={styles.securityRow}>
             <Ionicons name="shield-checkmark" size={22} color={theme.accent.green} />
             <View style={{ flex: 1, marginLeft: 12 }}>
@@ -72,6 +91,11 @@ export function SettingsScreen() {
       </View>
 
       <View style={{ height: 32 }} />
+
+      <RetentionModal
+        visible={showRetentionModal}
+        onClose={() => setShowRetentionModal(false)}
+      />
     </ScrollView>
   );
 }
@@ -166,6 +190,11 @@ const styles = StyleSheet.create({
     color: theme.text.primary,
   },
   securityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,

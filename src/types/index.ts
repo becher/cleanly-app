@@ -81,3 +81,20 @@ export interface PlatformConfig {
   phase: 1 | 2;
 }
 
+export interface RetentionRule {
+  id: string;
+  platform: Platform;
+  accountId: string;
+  accountName: string;
+  enabled: boolean;
+  retentionDays: number; // 7, 14, 30, 90, 180, 365
+  frequency: 'daily' | 'weekly' | 'monthly';
+  lastRunAt?: number;
+  nextRunAt: number;
+  targetScope: 'all' | 'dms' | 'guilds';
+  stealthMode: boolean;
+  ignorePinned: boolean;
+  executionMode: 'auto_background' | 'notify_confirm';
+  autoCleanedCount?: number;
+}
+

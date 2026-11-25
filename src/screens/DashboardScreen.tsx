@@ -11,6 +11,9 @@ import { theme, PLATFORM_COLORS } from '../constants/theme';
 import { DeletionProgress } from '../components/DeletionProgress';
 import { NetworkCard } from '../components/NetworkCard';
 import { DiscordCleanModal } from '../components/DiscordCleanModal';
+import { RetentionModal } from '../components/RetentionModal';
+import { useRetentionStore } from '../store/retentionStore';
+import { retentionService } from '../services/retentionService';
 import type { PlatformAccount } from '../types';
 
 function formatRelativeDate(timestamp: number): string {
@@ -37,9 +40,16 @@ export function DashboardScreen() {
   const totalDeleted = useHistoryStore((s) => s.getTotalDeleted());
 
   const [cleaningAccount, setCleaningAccount] = useState<PlatformAccount | null>(null);
+  const [showRetentionModal, setShowRetentionModal] = useState(false);
+
+  const retentionRules = useRetentionStore((s) => s.rules);
+  const anyActiveRule = retentionRules.find((r) => r.enabled);
 
   useEffect(() => {
     loadHistory();
+    useRetentionStore.getState().loadRules().then(() => {
+      retentionService.checkDueRetentionRules();
+    });
   }, [loadHistory]);
 
   const handleClean = (account: PlatformAccount) => {
@@ -75,6 +85,39 @@ export function DashboardScreen() {
           color="#8B5CF6"
         />
       </View>
+
+      {/* Bannière Rétention & Auto-Clean (FEAT-06) */}
+      {accounts.length > 0 && (
+        <TouchableOpacity
+          style={[styles.retentionBanner, anyActiveRule && styles.retentionBannerActive]}
+          onPress={() => setShowRetentionModal(true)}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.retentionBannerIcon, anyActiveRule && styles.retentionBannerIconActive]}>
+            <Ionicons
+              name={anyActiveRule ? 'shield-checkmark' : 'timer-outline'}
+              size={20}
+              color={anyActiveRule ? '#10B981' : '#5865F2'}
+            />
+          </View>
+          <View style={{ flex: 1, marginHorizontal: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.retentionBannerTitle}>Auto-Clean & Rétention</Text>
+              {anyActiveRule && (
+                <View style={styles.activePill}>
+                  <Text style={styles.activePillText}>Actif</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.retentionBannerSub} numberOfLines={1}>
+              {anyActiveRule
+                ? `${retentionService.formatRuleSummary(anyActiveRule)} • ${retentionService.formatNextRun(anyActiveRule)}`
+                : 'Automatisez la purge périodique de vos anciens messages'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={theme.text.muted} />
+        </TouchableOpacity>
+      )}
 
       {/* Progressions actives */}
       {activeTasks.length > 0 && (
@@ -179,6 +222,15 @@ export function DashboardScreen() {
           }}
         />
       )}
+
+      {/* Modale Auto-Clean & Rétention (FEAT-06) */}
+      <RetentionModal
+        visible={showRetentionModal}
+        onClose={() => setShowRetentionModal(false)}
+        onTriggerClean={(acc, days) => {
+          setCleaningAccount(acc);
+        }}
+      />
     </ScrollView>
   );
 }
@@ -320,5 +372,52 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: theme.accent.red,
+  },
+  retentionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+    borderRadius: theme.radius.md,
+    padding: 12,
+    marginBottom: 16,
+  },
+  retentionBannerActive: {
+    borderColor: '#10B98140',
+    backgroundColor: '#10B98106',
+  },
+  retentionBannerIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#5865F212',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  retentionBannerIconActive: {
+    backgroundColor: '#10B98118',
+  },
+  retentionBannerTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: theme.text.primary,
+  },
+  retentionBannerSub: {
+    fontSize: 11,
+    color: theme.text.muted,
+    marginTop: 1,
+  },
+  activePill: {
+    backgroundColor: '#10B98120',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginLeft: 6,
+  },
+  activePillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#10B981',
   },
 });

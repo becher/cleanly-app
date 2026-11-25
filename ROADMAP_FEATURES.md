@@ -21,7 +21,7 @@ Faire de **Cleanly** la référence mobile (Android & iOS) de nettoyage et d'hyg
 | **FEAT-03** | ⚡ **P1 (Élevée)** | **Fermeture automatique des DMs** : Supprime vos messages privés puis masque/ferme le fil de discussion de votre liste. | Discord, Teams | ✅ **Terminé (v1.2)** |
 | **FEAT-04** | 🌟 **P2 (Moyenne)** | **Nettoyage des Réactions Emoji** : Retirer en masse les réactions laissées sur les messages d'autres utilisateurs. | Discord, Slack | ✅ **Terminé (v1.3)** |
 | **FEAT-05** | 🌟 **P2 (Moyenne)** | **Import de Package de Données Officiel (ZIP/JSON)** : Contourne les limites des API pour supprimer l'historique complet depuis le 1er jour. | Discord, Twitter, Reddit | ✅ **Terminé (v1.4)** |
-| **FEAT-06** | 📅 **P3 (Évolution)** | **Auto-Clean Programmé (Règle de rétention)** : Tâche d'arrière-plan hebdomadaire ou mensuelle pour purger les messages anciens. | Multi-réseaux | ⏳ Planifié |
+| **FEAT-06** | 📅 **P3 (Évolution)** | **Auto-Clean Programmé (Règle de rétention)** : Tâche d'arrière-plan hebdomadaire ou mensuelle pour purger les messages anciens. | Multi-réseaux | ✅ **Terminé (v1.5)** |
 
 ---
 
