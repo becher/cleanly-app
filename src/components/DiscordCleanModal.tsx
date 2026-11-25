@@ -356,6 +356,11 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
         setLoadingText(`Scan global sur ${guilds.length} serveurs...`);
         const BATCH_SIZE = 3;
         let processedGuilds = 0;
+        const trimmedKeyword = filterKeyword.trim();
+        // L'API Discord messages/search n'indexe pas les termes de moins de 3 caractères et ne supporte pas les sous-chaînes (substrings).
+        // Si le mot-clé fait moins de 3 caractères (ex: "he"), on ne passe pas "content" à Discord pour éviter un résultat vide,
+        // et on filtre directement en mémoire avec matchesFilters.
+        const useDiscordContent = trimmedKeyword.length >= 3;
 
         for (let i = 0; i < guilds.length; i += BATCH_SIZE) {
           if (scanAbortedRef.current) break;
@@ -364,11 +369,25 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
           await Promise.all(
             batch.map(async (g) => {
               try {
-                const searchRes = await searchDiscordGuildMessages(token, g.id, {
+                let searchRes = await searchDiscordGuildMessages(token, g.id, {
                   authorId: userId,
-                  content: filterKeyword.trim() || undefined,
+                  content: useDiscordContent ? trimmedKeyword : undefined,
                   has: onlyWithAttachments ? 'file' : onlyWithLinks ? 'link' : undefined,
                 });
+
+                // Fallback si 0 résultat avec content (ex: mot partiel/préfixe comme "hel" pour "hello" que Discord Search n'attrape pas)
+                if (
+                  useDiscordContent &&
+                  (!searchRes || !searchRes.messages || searchRes.messages.length === 0)
+                ) {
+                  const fallbackRes = await searchDiscordGuildMessages(token, g.id, {
+                    authorId: userId,
+                    has: onlyWithAttachments ? 'file' : onlyWithLinks ? 'link' : undefined,
+                  });
+                  if (fallbackRes && fallbackRes.messages && fallbackRes.messages.length > 0) {
+                    searchRes = fallbackRes;
+                  }
+                }
 
                 if (searchRes && Array.isArray(searchRes.messages)) {
                   for (const msg of searchRes.messages) {
@@ -396,11 +415,28 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
         let fastSearchSuccess = false;
         if (selectedGuild && selectedGuild.id !== 'dms') {
           try {
-            const searchRes = await searchDiscordGuildMessages(token, selectedGuild.id, {
+            const trimmedKeyword = filterKeyword.trim();
+            const useDiscordContent = trimmedKeyword.length >= 3;
+
+            let searchRes = await searchDiscordGuildMessages(token, selectedGuild.id, {
               authorId: userId,
-              content: filterKeyword.trim() || undefined,
+              content: useDiscordContent ? trimmedKeyword : undefined,
               has: onlyWithAttachments ? 'file' : onlyWithLinks ? 'link' : undefined,
             });
+
+            // Fallback si mot partiel ou sous-chaîne non trouvée par l'index Discord
+            if (
+              useDiscordContent &&
+              (!searchRes || !searchRes.messages || searchRes.messages.length === 0)
+            ) {
+              const fallbackRes = await searchDiscordGuildMessages(token, selectedGuild.id, {
+                authorId: userId,
+                has: onlyWithAttachments ? 'file' : onlyWithLinks ? 'link' : undefined,
+              });
+              if (fallbackRes && fallbackRes.messages && fallbackRes.messages.length > 0) {
+                searchRes = fallbackRes;
+              }
+            }
 
             if (searchRes && Array.isArray(searchRes.messages) && searchRes.messages.length > 0) {
               for (const msg of searchRes.messages) {
