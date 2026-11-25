@@ -1450,12 +1450,12 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
               </View>
             )}
 
-            {/* ================= ÉTAPE 3 : FILTRES AVANCÉS & SCAN (ERGONOMIE ULTRA-COMPACTE) ================= */}
+            {/* ================= ÉTAPE 3 : FILTRES AVANCÉS & SCAN (4 CARTES COMPACTES OPTIMISÉES) ================= */}
             {step === 'filter_options' && (
               <View style={{ flex: 1 }}>
                 <ScrollView
                   style={styles.pageContent}
-                  contentContainerStyle={{ paddingBottom: 24 }}
+                  contentContainerStyle={{ paddingBottom: 20 }}
                   showsVerticalScrollIndicator={false}
                 >
                   <Text style={styles.sectionTitle}>3. Filtres de recherche</Text>
@@ -1463,14 +1463,21 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     Ciblez précisément les messages à supprimer.
                   </Text>
 
-                  {/* 1. Carte Unique de Ciblage : Mot-clé + Période */}
+                  {/* 1. Mot-clé / Recherche de texte */}
                   <View style={styles.filterCardCompact}>
-                    {/* Mot-clé de recherche */}
+                    <View style={styles.filterHeaderRowCompact}>
+                      <Ionicons name="search-outline" size={16} color="#5865F2" style={{ marginRight: 6 }} />
+                      <Text style={styles.filterLabelCompact}>Filtrer par mot-clé ou texte</Text>
+                    </View>
+                    <Text style={styles.filterSubDescCompact}>
+                      Seuls les messages contenant ce texte seront ciblés (optionnel).
+                    </Text>
+
                     <View style={styles.filterSearchBarBoxCompact}>
-                      <Ionicons name="search" size={16} color={theme.text.muted} style={{ marginRight: 6 }} />
+                      <Ionicons name="search" size={15} color={theme.text.muted} style={{ marginRight: 6 }} />
                       <TextInput
                         style={styles.filterSearchInputCompact}
-                        placeholder="Filtrer par mot-clé (optionnel)..."
+                        placeholder="Ex : mot de passe, secret, lien, discord.gg..."
                         placeholderTextColor={theme.text.muted}
                         value={filterKeyword}
                         onChangeText={setFilterKeyword}
@@ -1484,28 +1491,39 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                         </TouchableOpacity>
                       )}
                     </View>
+                  </View>
 
-                    {/* Sélecteur d'ancienneté compact */}
+                  {/* 2. Ancienneté — Liste déroulante compacte */}
+                  <View style={styles.filterCardCompact}>
+                    <View style={styles.filterHeaderRowCompact}>
+                      <Ionicons name="calendar-outline" size={16} color="#5865F2" style={{ marginRight: 6 }} />
+                      <Text style={styles.filterLabelCompact}>Ancienneté des messages</Text>
+                    </View>
+
                     <TouchableOpacity
                       style={[styles.dropdownBtnCompact, isDateDropdownOpen && styles.dropdownBtnActive]}
                       onPress={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
                       activeOpacity={0.8}
                     >
-                      <Ionicons
-                        name={
-                          (DATE_FILTER_OPTIONS.find((o) => o.days === filterDays) ?? DATE_FILTER_OPTIONS[0]).icon
-                        }
-                        size={15}
-                        color="#5865F2"
-                        style={{ marginRight: 8 }}
-                      />
-                      <Text style={styles.dropdownValueCompact}>
-                        {(DATE_FILTER_OPTIONS.find((o) => o.days === filterDays) ?? DATE_FILTER_OPTIONS[0]).title}
-                      </Text>
-                      <Text style={styles.dropdownDescCompact} numberOfLines={1}>
-                        • {(DATE_FILTER_OPTIONS.find((o) => o.days === filterDays) ?? DATE_FILTER_OPTIONS[0]).desc}
-                      </Text>
-                      <View style={{ flex: 1 }} />
+                      <View style={styles.dropdownLeftCompact}>
+                        <View style={styles.dropdownIconCircleCompact}>
+                          <Ionicons
+                            name={
+                              (DATE_FILTER_OPTIONS.find((o) => o.days === filterDays) ?? DATE_FILTER_OPTIONS[0]).icon
+                            }
+                            size={14}
+                            color="#5865F2"
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.dropdownValueCompact}>
+                            {(DATE_FILTER_OPTIONS.find((o) => o.days === filterDays) ?? DATE_FILTER_OPTIONS[0]).title}
+                          </Text>
+                          <Text style={styles.dropdownDescCompact} numberOfLines={1}>
+                            {(DATE_FILTER_OPTIONS.find((o) => o.days === filterDays) ?? DATE_FILTER_OPTIONS[0]).desc}
+                          </Text>
+                        </View>
+                      </View>
                       <Ionicons
                         name={isDateDropdownOpen ? 'chevron-up' : 'chevron-down'}
                         size={16}
@@ -1513,7 +1531,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                       />
                     </TouchableOpacity>
 
-                    {/* Menu déroulant dépliable */}
+                    {/* Menu déroulant compact si ouvert */}
                     {isDateDropdownOpen && (
                       <View style={styles.dropdownMenuCompact}>
                         {DATE_FILTER_OPTIONS.map((opt, idx) => {
@@ -1534,16 +1552,22 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                             >
                               <Ionicons
                                 name={opt.icon}
-                                size={16}
+                                size={15}
                                 color={isSelected ? '#5865F2' : theme.text.muted}
-                                style={{ marginRight: 10 }}
+                                style={{ marginRight: 8 }}
                               />
                               <View style={{ flex: 1 }}>
-                                <Text style={[styles.dropdownItemTitleCompact, isSelected && { color: '#5865F2', fontWeight: '700' }]}>
+                                <Text
+                                  style={[
+                                    styles.dropdownItemTitleCompact,
+                                    isSelected && { color: '#5865F2', fontWeight: '700' },
+                                  ]}
+                                >
                                   {opt.title}
                                 </Text>
+                                <Text style={styles.dropdownItemDescCompact}>{opt.desc}</Text>
                               </View>
-                              {isSelected && <Ionicons name="checkmark-circle" size={18} color="#5865F2" />}
+                              {isSelected && <Ionicons name="checkmark-circle" size={16} color="#5865F2" />}
                             </TouchableOpacity>
                           );
                         })}
@@ -1551,110 +1575,83 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     )}
                   </View>
 
-                  {/* 2. Filtres rapides de contenu sous forme de Chips tactiles (1 seule rangée compacte) */}
-                  <View style={styles.contentChipsRow}>
-                    {/* Chip Pièces jointes */}
-                    <TouchableOpacity
-                      style={[
-                        styles.contentFilterChip,
-                        onlyWithAttachments && styles.contentFilterChipActive,
-                      ]}
-                      onPress={() => setOnlyWithAttachments(!onlyWithAttachments)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name={onlyWithAttachments ? 'image' : 'image-outline'}
-                        size={13}
-                        color={onlyWithAttachments ? '#5865F2' : theme.text.secondary}
-                        style={{ marginRight: 5 }}
-                      />
-                      <Text
-                        style={[
-                          styles.contentFilterChipText,
-                          onlyWithAttachments && styles.contentFilterChipTextActive,
-                        ]}
-                      >
-                        Médias seuls
-                      </Text>
-                    </TouchableOpacity>
+                  {/* 3. Types de contenu & Protections (3 switches classiques) */}
+                  <View style={styles.filterCardCompact}>
+                    <View style={styles.filterHeaderRowCompact}>
+                      <Ionicons name="attach-outline" size={16} color="#5865F2" style={{ marginRight: 6 }} />
+                      <Text style={styles.filterLabelCompact}>Type de contenu & Protections</Text>
+                    </View>
 
-                    {/* Chip Liens */}
-                    <TouchableOpacity
-                      style={[
-                        styles.contentFilterChip,
-                        onlyWithLinks && styles.contentFilterChipActive,
-                      ]}
-                      onPress={() => setOnlyWithLinks(!onlyWithLinks)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name={onlyWithLinks ? 'link' : 'link-outline'}
-                        size={13}
-                        color={onlyWithLinks ? '#5865F2' : theme.text.secondary}
-                        style={{ marginRight: 5 }}
+                    <View style={styles.switchRowCompact}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.switchTitleCompact}>Avec pièces jointes uniquement</Text>
+                        <Text style={styles.switchSubCompact}>Images, vidéos, fichiers PDF/ZIP</Text>
+                      </View>
+                      <Switch
+                        value={onlyWithAttachments}
+                        onValueChange={setOnlyWithAttachments}
+                        trackColor={{ true: '#5865F2', false: theme.bg.raised }}
                       />
-                      <Text
-                        style={[
-                          styles.contentFilterChipText,
-                          onlyWithLinks && styles.contentFilterChipTextActive,
-                        ]}
-                      >
-                        Liens seuls
-                      </Text>
-                    </TouchableOpacity>
+                    </View>
 
-                    {/* Chip Ignorer épinglés */}
+                    <View style={[styles.switchRowCompact, styles.switchBorderTop]}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.switchTitleCompact}>Avec liens URLs uniquement</Text>
+                        <Text style={styles.switchSubCompact}>Liens internet et aperçus</Text>
+                      </View>
+                      <Switch
+                        value={onlyWithLinks}
+                        onValueChange={setOnlyWithLinks}
+                        trackColor={{ true: '#5865F2', false: theme.bg.raised }}
+                      />
+                    </View>
+
+                    <View style={[styles.switchRowCompact, styles.switchBorderTop]}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.switchTitleCompact}>Ignorer les messages épinglés</Text>
+                        <Text style={styles.switchSubCompact}>Conserver les messages importants</Text>
+                      </View>
+                      <Switch
+                        value={ignorePinned}
+                        onValueChange={setIgnorePinned}
+                        trackColor={{ true: '#5865F2', false: theme.bg.raised }}
+                      />
+                    </View>
+                  </View>
+
+                  {/* 4. Package de données officiel (FEAT-05 Bypass API) */}
+                  <View style={styles.filterCardCompact}>
+                    <View style={styles.filterHeaderRowCompact}>
+                      <Ionicons name="document-text-outline" size={16} color="#8B5CF6" style={{ marginRight: 6 }} />
+                      <Text style={[styles.filterLabelCompact, { color: '#8B5CF6' }]}>Package officiel (Bypass API)</Text>
+                    </View>
+                    <Text style={styles.filterSubDescCompact}>
+                      Importez votre export GDPR (messages.json) pour contourner la limite d'indexation Discord.
+                    </Text>
+
                     <TouchableOpacity
-                      style={[
-                        styles.contentFilterChip,
-                        ignorePinned && styles.contentFilterChipActivePinned,
-                      ]}
-                      onPress={() => setIgnorePinned(!ignorePinned)}
-                      activeOpacity={0.7}
+                      style={styles.archiveImportBtnCompact}
+                      onPress={() => setIsArchiveModalOpen(true)}
+                      activeOpacity={0.8}
                     >
                       <Ionicons
-                        name={ignorePinned ? 'pin' : 'pin-outline'}
-                        size={13}
-                        color={ignorePinned ? '#10B981' : theme.text.secondary}
-                        style={{ marginRight: 5 }}
+                        name={importedArchiveCount > 0 ? 'checkmark-circle' : 'cloud-upload-outline'}
+                        size={15}
+                        color={importedArchiveCount > 0 ? '#10B981' : '#8B5CF6'}
+                        style={{ marginRight: 6 }}
                       />
                       <Text
                         style={[
-                          styles.contentFilterChipText,
-                          ignorePinned && styles.contentFilterChipTextActivePinned,
+                          styles.archiveImportBtnTextCompact,
+                          importedArchiveCount > 0 && { color: '#10B981', fontWeight: '700' },
                         ]}
                       >
-                        Ignorer épinglés
+                        {importedArchiveCount > 0
+                          ? `✓ ${importedArchiveCount} messages importés depuis archive`
+                          : 'Coller / Importer un fichier messages.json'}
                       </Text>
                     </TouchableOpacity>
                   </View>
-
-                  {/* 3. Bandeau compact Archive Officielle (FEAT-05) */}
-                  <TouchableOpacity
-                    style={styles.archiveCompactBar}
-                    onPress={() => setIsArchiveModalOpen(true)}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.archiveCompactLeft}>
-                      <Ionicons
-                        name={importedArchiveCount > 0 ? 'checkmark-circle' : 'document-text'}
-                        size={16}
-                        color={importedArchiveCount > 0 ? '#10B981' : '#8B5CF6'}
-                        style={{ marginRight: 8 }}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.archiveCompactTitle}>
-                          {importedArchiveCount > 0
-                            ? `${importedArchiveCount} messages importés depuis archive`
-                            : 'Importer messages.json (Bypass limite API)'}
-                        </Text>
-                        <Text style={styles.archiveCompactSub} numberOfLines={1}>
-                          {importedArchiveCount > 0 ? 'Archive active pour suppression ✓' : 'Pour cibler 100% de vos anciens messages'}
-                        </Text>
-                      </View>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color={theme.text.muted} />
-                  </TouchableOpacity>
                 </ScrollView>
 
                 {/* Footer Scan */}
@@ -4374,7 +4371,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFF',
   },
-  // Nouveaux styles ultra-compacts pour l'étape filter_options
+  // Styles optimisés et compacts pour l'étape filter_options (4 cartes)
   filterCardCompact: {
     backgroundColor: '#FFF',
     padding: 10,
@@ -4382,6 +4379,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: theme.border.subtle,
+  },
+  filterHeaderRowCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  filterLabelCompact: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: theme.text.primary,
+  },
+  filterSubDescCompact: {
+    fontSize: 11,
+    color: theme.text.muted,
+    marginBottom: 6,
+    lineHeight: 14,
   },
   filterSearchBarBoxCompact: {
     flexDirection: 'row',
@@ -4392,7 +4405,6 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderWidth: 1,
     borderColor: theme.border.subtle,
-    marginBottom: 8,
   },
   filterSearchInputCompact: {
     flex: 1,
@@ -4403,106 +4415,98 @@ const styles = StyleSheet.create({
   dropdownBtnCompact: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: theme.bg.raised,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: theme.radius.sm,
     borderWidth: 1,
     borderColor: theme.border.subtle,
+    borderRadius: theme.radius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginTop: 4,
+  },
+  dropdownLeftCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 6,
+  },
+  dropdownIconCircleCompact: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#5865F215',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
   },
   dropdownValueCompact: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '700',
     color: theme.text.primary,
   },
   dropdownDescCompact: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: theme.text.muted,
-    marginLeft: 4,
   },
   dropdownMenuCompact: {
     backgroundColor: '#FFF',
     borderWidth: 1,
     borderColor: theme.border.subtle,
     borderRadius: theme.radius.sm,
-    marginTop: 6,
+    marginTop: 4,
     overflow: 'hidden',
   },
   dropdownItemCompact: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: 7,
   },
   dropdownItemTitleCompact: {
     fontSize: 12,
     fontWeight: '600',
     color: theme.text.primary,
   },
-  contentChipsRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 8,
-  },
-  contentFilterChip: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF',
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    borderRadius: theme.radius.sm,
-    borderWidth: 1,
-    borderColor: theme.border.subtle,
-  },
-  contentFilterChipActive: {
-    borderColor: '#5865F2',
-    backgroundColor: '#5865F20A',
-  },
-  contentFilterChipActivePinned: {
-    borderColor: '#10B981',
-    backgroundColor: '#10B9810A',
-  },
-  contentFilterChipText: {
+  dropdownItemDescCompact: {
     fontSize: 10,
-    fontWeight: '600',
-    color: theme.text.secondary,
+    color: theme.text.muted,
   },
-  contentFilterChipTextActive: {
-    color: '#5865F2',
-    fontWeight: '700',
-  },
-  contentFilterChipTextActivePinned: {
-    color: '#10B981',
-    fontWeight: '700',
-  },
-  archiveCompactBar: {
+  switchRowCompact: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#8B5CF60C',
-    borderWidth: 1,
-    borderColor: '#8B5CF630',
-    borderRadius: theme.radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 8,
+    paddingVertical: 5,
   },
-  archiveCompactLeft: {
-    flex: 1,
+  switchBorderTop: {
+    borderTopWidth: 1,
+    borderTopColor: theme.border.subtle,
+    paddingTop: 5,
+    marginTop: 2,
+  },
+  switchTitleCompact: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: theme.text.primary,
+  },
+  switchSubCompact: {
+    fontSize: 10.5,
+    color: theme.text.muted,
+  },
+  archiveImportBtnCompact: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 6,
+    justifyContent: 'center',
+    backgroundColor: '#8B5CF612',
+    borderWidth: 1,
+    borderColor: '#8B5CF640',
+    borderRadius: theme.radius.sm,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    marginTop: 6,
   },
-  archiveCompactTitle: {
-    fontSize: 11,
+  archiveImportBtnTextCompact: {
+    fontSize: 11.5,
     fontWeight: '700',
     color: '#8B5CF6',
-  },
-  archiveCompactSub: {
-    fontSize: 10,
-    color: theme.text.muted,
-    marginTop: 1,
   },
 });
