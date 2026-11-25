@@ -267,6 +267,16 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     return channels.filter((c) => c.name.toLowerCase().includes(q));
   }, [channels, channelSearch]);
 
+  // Savoir si tous les salons affichés sont cochés
+  const isAllFilteredChannelsSelected =
+    filteredChannels.length > 0 &&
+    filteredChannels.every((c) => selectedChannelIds.has(c.id));
+
+  // Savoir si certains salons affichés sont cochés (état partiel)
+  const isSomeFilteredChannelsSelected =
+    !isAllFilteredChannelsSelected &&
+    filteredChannels.some((c) => selectedChannelIds.has(c.id));
+
   // Basculer la sélection d'un salon
   const toggleChannel = (channelId: string) => {
     const next = new Set(selectedChannelIds);
@@ -287,12 +297,17 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
   };
 
   const isAllChannelsSelected = channels.length > 0 && selectedChannelIds.size === channels.length;
+
   const toggleAllChannels = () => {
-    if (isAllChannelsSelected) {
-      setSelectedChannelIds(new Set());
+    const next = new Set(selectedChannelIds);
+    if (isAllFilteredChannelsSelected) {
+      // Décocher les salons visibles
+      filteredChannels.forEach((c) => next.delete(c.id));
     } else {
-      setSelectedChannelIds(new Set(channels.map((c) => c.id)));
+      // Cocher tous les salons visibles
+      filteredChannels.forEach((c) => next.add(c.id));
     }
+    setSelectedChannelIds(next);
   };
 
   // 3. Scanner les messages sur les salons sélectionnés ou tous les serveurs (Optimisé & Parallélisé)
@@ -947,29 +962,31 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
             )}
 
             {/* ================= ÉTAPE 2 : SÉLECTION DES SALONS (MULTI-CHOIX) ================= */}
+            {/* ================= ÉTAPE 2 : SÉLECTION DES SALONS (FILTRE EN HAUT / RÉSULTATS EN BAS) ================= */}
             {step === 'select_channels' && (
               <View style={{ flex: 1 }}>
-                <ScrollView style={styles.pageContent} showsVerticalScrollIndicator={false}>
+                {/* 1. ZONE FIXE EN HAUT : EN-TÊTE SERVEUR + ZONE DE RECHERCHE (FILTRE) + CHECKBOX TABLEAU */}
+                <View style={styles.channelsTopFilterContainer}>
                   {/* Carte Récapitulative du Serveur avec Logo */}
                   {selectedGuild && (
-                    <View style={styles.serverCardHeader}>
+                    <View style={styles.serverCardHeaderCompact}>
                       {getGuildIconUrl(selectedGuild.id, selectedGuild.icon) ? (
                         <Image
                           source={{ uri: getGuildIconUrl(selectedGuild.id, selectedGuild.icon)! }}
-                          style={styles.serverCardImg}
+                          style={styles.serverCardImgSmall}
                         />
                       ) : (
-                        <View style={[styles.avatarBox, { backgroundColor: '#5865F2' }]}>
+                        <View style={[styles.avatarBoxSmall, { backgroundColor: '#5865F2' }]}>
                           {selectedGuild.id === 'dms' ? (
-                            <Ionicons name="chatbubbles" size={20} color="#FFF" />
+                            <Ionicons name="chatbubbles" size={16} color="#FFF" />
                           ) : (
-                            <Text style={styles.guildInitials}>
+                            <Text style={styles.guildInitialsSmall}>
                               {selectedGuild.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
                             </Text>
                           )}
                         </View>
                       )}
-                      <View style={{ flex: 1, marginLeft: 12 }}>
+                      <View style={{ flex: 1, marginLeft: 10 }}>
                         <Text style={styles.serverCardTitle} numberOfLines={1}>
                           {selectedGuild.name}
                         </Text>
@@ -980,112 +997,126 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     </View>
                   )}
 
-                  <Text style={styles.sectionTitle}>2. Sélectionnez les salons</Text>
-                  <Text style={styles.sectionDesc}>
-                    Cochez les salons à scanner pour vos messages.
-                  </Text>
-
-                  {/* Vraie Checkbox interactive Tout cocher / Tout décocher */}
-                  <TouchableOpacity
-                    style={[
-                      styles.selectAllCheckboxBar,
-                      isAllChannelsSelected && styles.selectAllCheckboxBarActive,
-                    ]}
-                    onPress={toggleAllChannels}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={
-                        isAllChannelsSelected
-                          ? 'checkbox'
-                          : selectedChannelIds.size > 0
-                          ? 'remove-circle'
-                          : 'square-outline'
-                      }
-                      size={22}
-                      color={
-                        isAllChannelsSelected || selectedChannelIds.size > 0
-                          ? '#5865F2'
-                          : theme.text.muted
-                      }
-                      style={{ marginRight: 10 }}
-                    />
-                    <Text
-                      style={[
-                        styles.selectAllCheckboxText,
-                        isAllChannelsSelected && styles.selectAllCheckboxTextActive,
-                      ]}
-                    >
-                      {isAllChannelsSelected ? 'Tous les salons cochés' : 'Tout cocher'}
-                    </Text>
-                    <View style={{ flex: 1 }} />
-                    <View
-                      style={[
-                        styles.countBadge,
-                        isAllChannelsSelected && styles.countBadgeActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.countBadgeText,
-                          isAllChannelsSelected && styles.countBadgeTextActive,
-                        ]}
-                      >
-                        {selectedChannelIds.size} / {channels.length}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* Barre de recherche de salons */}
-                  <View style={styles.searchBar}>
-                    <Ionicons name="search" size={18} color={theme.text.muted} style={{ marginRight: 8 }} />
+                  {/* Zone de Recherche = LE FILTRE EN HAUT */}
+                  <View style={styles.filterSearchBarBox}>
+                    <Ionicons name="search" size={17} color={theme.text.muted} style={{ marginRight: 8 }} />
                     <TextInput
-                      style={styles.searchInput}
-                      placeholder="Rechercher un salon..."
+                      style={styles.filterSearchInput}
+                      placeholder="Filtrer les salons par nom..."
                       placeholderTextColor={theme.text.muted}
                       value={channelSearch}
                       onChangeText={setChannelSearch}
                     />
                     {channelSearch.length > 0 && (
-                      <TouchableOpacity onPress={() => setChannelSearch('')}>
+                      <TouchableOpacity
+                        onPress={() => setChannelSearch('')}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
                         <Ionicons name="close-circle" size={18} color={theme.text.muted} />
                       </TouchableOpacity>
                     )}
                   </View>
 
+                  {/* Barre d'en-tête du tableau : Checkbox Tout Cocher + Compteur résultats */}
+                  <View style={styles.tableHeaderRow}>
+                    <TouchableOpacity
+                      style={styles.tableSelectAllBtn}
+                      onPress={toggleAllChannels}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={
+                          isAllFilteredChannelsSelected
+                            ? 'checkbox'
+                            : isSomeFilteredChannelsSelected
+                            ? 'remove-circle'
+                            : 'square-outline'
+                        }
+                        size={22}
+                        color={
+                          isAllFilteredChannelsSelected || isSomeFilteredChannelsSelected
+                            ? '#5865F2'
+                            : theme.text.muted
+                        }
+                        style={{ marginRight: 8 }}
+                      />
+                      <Text
+                        style={[
+                          styles.tableSelectAllText,
+                          (isAllFilteredChannelsSelected || isSomeFilteredChannelsSelected) && styles.tableSelectAllTextActive,
+                        ]}
+                      >
+                        {isAllFilteredChannelsSelected
+                          ? 'Tous les salons cochés'
+                          : isSomeFilteredChannelsSelected
+                          ? 'Sélection partielle'
+                          : 'Tout cocher'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.tableStatsBadge}>
+                      <Text style={styles.tableStatsBadgeText}>
+                        {selectedChannelIds.size} / {channels.length} sélectionné{selectedChannelIds.size > 1 ? 's' : ''}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* 2. ZONE BASSE SCROLLABLE : LES RÉSULTATS DU TABLEAU */}
+                <ScrollView style={styles.channelsResultScroll} showsVerticalScrollIndicator={false}>
                   {filteredChannels.length === 0 ? (
-                    <View style={styles.emptyCard}>
-                      <Text style={styles.emptyText}>Aucun salon textuel trouvé</Text>
+                    <View style={styles.emptyTableBox}>
+                      <Ionicons name="filter-outline" size={36} color={theme.text.muted} />
+                      <Text style={styles.emptyTableTitle}>Aucun salon trouvé</Text>
+                      <Text style={styles.emptyTableSub}>
+                        Aucun salon ne correspond à votre filtre « {channelSearch} »
+                      </Text>
                     </View>
                   ) : (
-                    filteredChannels.map((c) => {
-                      const isChecked = selectedChannelIds.has(c.id);
-                      return (
-                        <TouchableOpacity
-                          key={c.id}
-                          style={[styles.itemCard, isChecked && styles.itemCardSelected]}
-                          onPress={() => toggleChannel(c.id)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons
-                            name={isChecked ? 'checkbox' : 'square-outline'}
-                            size={22}
-                            color={isChecked ? '#5865F2' : theme.text.muted}
-                            style={{ marginRight: 12 }}
-                          />
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.itemTitle, isChecked && { color: '#5865F2' }]}>
-                              #{c.name}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })
+                    <View style={styles.tableContainer}>
+                      {filteredChannels.map((c, index) => {
+                        const isChecked = selectedChannelIds.has(c.id);
+                        const isLast = index === filteredChannels.length - 1;
+                        return (
+                          <TouchableOpacity
+                            key={c.id}
+                            style={[
+                              styles.tableRow,
+                              isChecked && styles.tableRowSelected,
+                              !isLast && styles.tableRowBorder,
+                            ]}
+                            onPress={() => toggleChannel(c.id)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons
+                              name={isChecked ? 'checkbox' : 'square-outline'}
+                              size={22}
+                              color={isChecked ? '#5865F2' : theme.text.muted}
+                              style={{ marginRight: 12 }}
+                            />
+                            <View style={{ flex: 1 }}>
+                              <Text
+                                style={[
+                                  styles.tableRowText,
+                                  isChecked && styles.tableRowTextSelected,
+                                ]}
+                                numberOfLines={1}
+                              >
+                                #{c.name}
+                              </Text>
+                            </View>
+                            {isChecked && (
+                              <Ionicons name="checkmark-sharp" size={16} color="#5865F2" />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
                   )}
-                  <View style={{ height: 80 }} />
+                  <View style={{ height: 90 }} />
                 </ScrollView>
 
-                {/* Footer validation */}
+                {/* 3. FOOTER FIXE : BOUTON CONTINUER */}
                 <View style={styles.bottomBar}>
                   <TouchableOpacity
                     style={[styles.primaryBtn, selectedChannelIds.size === 0 && { opacity: 0.5 }]}
@@ -1094,7 +1125,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     activeOpacity={0.85}
                   >
                     <Text style={styles.primaryBtnText}>
-                      Continuer avec {selectedChannelIds.size} salon(s) →
+                      Continuer avec {selectedChannelIds.size} salon{selectedChannelIds.size > 1 ? 's' : ''} →
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1909,6 +1940,143 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#5865F230',
     backgroundColor: '#5865F208',
+  },
+  // Nouveaux styles pour la sélection des salons (Filtre en haut / Résultats en bas)
+  channelsTopFilterContainer: {
+    backgroundColor: theme.bg.base,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border.subtle,
+  },
+  serverCardHeaderCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: theme.radius.md,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#5865F225',
+    marginBottom: 10,
+  },
+  serverCardImgSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  avatarBoxSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#5865F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  guildInitialsSmall: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  filterSearchBarBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginBottom: 8,
+  },
+  filterSearchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: theme.text.primary,
+    padding: 0,
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  tableSelectAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tableSelectAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.text.secondary,
+  },
+  tableSelectAllTextActive: {
+    color: '#5865F2',
+    fontWeight: '700',
+  },
+  tableStatsBadge: {
+    backgroundColor: '#5865F215',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.full,
+  },
+  tableStatsBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#5865F2',
+  },
+  channelsResultScroll: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  tableContainer: {
+    backgroundColor: '#FFF',
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+    overflow: 'hidden',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    backgroundColor: '#FFF',
+  },
+  tableRowSelected: {
+    backgroundColor: '#5865F20A',
+  },
+  tableRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border.subtle,
+  },
+  tableRowText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.text.primary,
+  },
+  tableRowTextSelected: {
+    color: '#5865F2',
+    fontWeight: '700',
+  },
+  emptyTableBox: {
+    padding: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTableTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.text.primary,
+    marginTop: 10,
+  },
+  emptyTableSub: {
+    fontSize: 12,
+    color: theme.text.muted,
+    marginTop: 4,
+    textAlign: 'center',
   },
   serverCardImg: {
     width: 44,
