@@ -579,6 +579,12 @@ function HistoryCard({
               <Text style={styles.tagText}>{record.filters.speedTitle}</Text>
             </View>
           )}
+          {record.filters.ghostMode && (
+            <View style={[styles.tagBadge, { backgroundColor: '#8B5CF618', borderColor: '#8B5CF630' }]}>
+              <Ionicons name="eye-off-outline" size={11} color="#8B5CF6" style={{ marginRight: 4 }} />
+              <Text style={[styles.tagText, { color: '#8B5CF6', fontWeight: '600' }]}>Mode Furtif</Text>
+            </View>
+          )}
         </View>
       )}
 

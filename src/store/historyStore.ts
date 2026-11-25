@@ -61,6 +61,7 @@ export interface HistoryRecord {
     onlyWithLinks?: boolean;
     ignorePinned?: boolean;
     speedTitle?: string;
+    ghostMode?: boolean;
   };
 }
 

@@ -155,6 +155,38 @@ export async function deleteDiscordMessage(
 }
 
 /**
+ * Modifie le contenu d'un message Discord (utilisé pour le Mode Furtif / Ghosting anti-logs)
+ * Écrase le message avec un contenu neutre (ex: '.') avant suppression définitive pour tromper les bots de logs
+ */
+export async function editDiscordMessage(
+  token: string,
+  channelId: string,
+  messageId: string,
+  newContent: string = '.'
+): Promise<boolean> {
+  return runWith429Retry(async () => {
+    try {
+      const response = await fetch(
+        `${DISCORD_API}/channels/${channelId}/messages/${messageId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            ...getHeaders(token),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ content: newContent }),
+        }
+      );
+
+      return response.ok;
+    } catch {
+      // Si l'édition échoue (ex: message supprimé entre-temps), ne pas bloquer le flux
+      return false;
+    }
+  }, 'discord');
+}
+
+/**
  * Récupère tous les messages d'un canal avec pagination
  */
 export async function getAllDiscordMessages(

@@ -30,6 +30,7 @@ import {
   getDiscordDirectMessages,
   getDiscordMessages,
   deleteDiscordMessage,
+  editDiscordMessage,
   searchDiscordGuildMessages,
   DiscordGuild,
   DiscordChannel,
@@ -155,6 +156,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
   const [onlyWithAttachments, setOnlyWithAttachments] = useState(false);
   const [onlyWithLinks, setOnlyWithLinks] = useState(false);
   const [ignorePinned, setIgnorePinned] = useState(true);
+  const [isGhostModeEnabled, setIsGhostModeEnabled] = useState(false); // Mode Furtif (Ghosting Anti-Logs)
   const [speedDelayMs, setSpeedDelayMs] = useState<number>(500); // 500ms normal
   const [isSpeedDropdownOpen, setIsSpeedDropdownOpen] = useState(false);
 
@@ -217,6 +219,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
       setOnlyWithAttachments(false);
       setOnlyWithLinks(false);
       setIgnorePinned(true);
+      setIsGhostModeEnabled(false);
       setScannedMessages([]);
       setSelectedMessageIds(new Set());
       setDeletedCount(0);
@@ -653,8 +656,8 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
       selectedGuild?.id === 'all_guilds'
         ? `Tous les serveurs (${formatCount(guilds.length, 'serveur', 'serveurs')})`
         : selectedGuild?.id === 'dms'
-        ? 'Messages Privés (DMs)'
-        : `${selectedGuild?.name ?? 'Discord'} (${formatCount(selectedChannelIds.size, 'salon', 'salons')})`;
+          ? 'Messages Privés (DMs)'
+          : `${selectedGuild?.name ?? 'Discord'} (${formatCount(selectedChannelIds.size, 'salon', 'salons')})`;
 
     showAlert(
       'Sauvegarder les messages',
@@ -694,13 +697,17 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
       ? 'Une copie de sauvegarde sera enregistrée dans vos archives Cleanly.'
       : 'Attention : la sauvegarde de précaution est désactivée.';
 
+    const ghostNotice = isGhostModeEnabled
+      ? '\n\n👻 Mode Furtif actif : les messages seront anonymisés avec un point (.) avant suppression pour déjouer les bots de modération (Carl-bot, Dyno).'
+      : '';
+
     showAlert(
       'Confirmer la suppression',
-      `Êtes-vous sûr de vouloir supprimer définitivement ${formatCount(selectedMessageIds.size, 'message', 'messages')} ?\n\n${backupNotice}`,
+      `Êtes-vous sûr de vouloir supprimer définitivement ${formatCount(selectedMessageIds.size, 'message', 'messages')} ?\n\n${backupNotice}${ghostNotice}`,
       [
         { text: 'Annuler', style: 'cancel', icon: 'close-outline' },
         {
-          text: `Supprimer ${formatCount(selectedMessageIds.size, 'message', 'messages')}`,
+          text: `Supprimer`,
           style: 'destructive',
           icon: 'trash',
           onPress: executeDeletion,
@@ -717,8 +724,8 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
         selectedGuild?.id === 'all_guilds'
           ? `Tous les serveurs (${guilds.length} serveurs)`
           : selectedGuild?.id === 'dms'
-          ? 'Messages Privés (DMs)'
-          : `${selectedGuild?.name ?? 'Discord'} (${selectedChannelIds.size} salon${selectedChannelIds.size > 1 ? 's' : ''})`;
+            ? 'Messages Privés (DMs)'
+            : `${selectedGuild?.name ?? 'Discord'} (${selectedChannelIds.size} salon${selectedChannelIds.size > 1 ? 's' : ''})`;
 
       const dateOpt = DATE_FILTER_OPTIONS.find((o) => o.days === filterDays);
       const speedOpt = SPEED_OPTIONS.find((o) => o.ms === speedDelayMs);
@@ -739,6 +746,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
           onlyWithLinks: onlyWithLinks || undefined,
           ignorePinned,
           speedTitle: speedOpt?.title,
+          ghostMode: isGhostModeEnabled || undefined,
         },
       });
 
@@ -770,9 +778,19 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
       }
 
       const msg = messagesToDelete[i];
-      setCurrentStatus(`[#${msg.channel_name ?? 'salon'}] "${msg.content.slice(0, 30)}..."`);
+      setCurrentStatus(
+        isGhostModeEnabled
+          ? `[👻 Furtif] #${msg.channel_name ?? 'salon'} : anonymisation & suppression...`
+          : `[#${msg.channel_name ?? 'salon'}] "${msg.content.slice(0, 30)}..."`
+      );
 
       try {
+        if (isGhostModeEnabled) {
+          // Écrase le message avec '.' pour tromper les bots de logs avant suppression
+          await editDiscordMessage(token, msg.channel_id, msg.id, '.');
+          await new Promise<void>((resolve) => setTimeout(() => resolve(), 60));
+        }
+
         await deleteDiscordMessage(token, msg.channel_id, msg.id, speedDelayMs);
         count++;
         setDeletedCount(count);
@@ -1191,8 +1209,8 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                           isAllFilteredChannelsSelected
                             ? 'checkbox'
                             : isSomeFilteredChannelsSelected
-                            ? 'remove-circle'
-                            : 'square-outline'
+                              ? 'remove-circle'
+                              : 'square-outline'
                         }
                         size={22}
                         color={
@@ -1211,8 +1229,8 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                         {isAllFilteredChannelsSelected
                           ? 'Tous les salons cochés'
                           : isSomeFilteredChannelsSelected
-                          ? 'Sélection partielle'
-                          : 'Tout cocher'}
+                            ? 'Sélection partielle'
+                            : 'Tout cocher'}
                       </Text>
                     </TouchableOpacity>
 
@@ -1453,6 +1471,26 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                         trackColor={{ true: '#5865F2', false: theme.bg.raised }}
                       />
                     </View>
+
+                    <View style={[styles.switchRow, { borderTopWidth: 1, borderTopColor: theme.border.subtle, paddingTop: 10 }]}>
+                      <View style={{ flex: 1, marginRight: 10 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={styles.switchTitle}>Mode Furtif (Ghosting Anti-Logs)</Text>
+                          <View style={styles.antiLogsBadge}>
+                            <Text style={styles.antiLogsBadgeText}>ANTI-LOGS</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.switchSub}>
+                          Écrase le contenu avec un point (.) avant suppression pour déjouer les salons de logs et bots (Carl-bot, Dyno)
+                        </Text>
+                      </View>
+                      <Switch
+                        value={isGhostModeEnabled}
+                        onValueChange={setIsGhostModeEnabled}
+                        trackColor={{ true: '#8B5CF6', false: theme.bg.raised }}
+                        thumbColor={isGhostModeEnabled ? '#FFF' : '#A0AEC0'}
+                      />
+                    </View>
                   </View>
 
                   <View style={{ height: 40 }} />
@@ -1528,8 +1566,8 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                           isAllFilteredMessagesSelected
                             ? 'checkbox'
                             : isSomeFilteredMessagesSelected
-                            ? 'remove-circle'
-                            : 'square-outline'
+                              ? 'remove-circle'
+                              : 'square-outline'
                         }
                         size={22}
                         color={
@@ -1553,10 +1591,10 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                             ? `Tous les ${filteredScannedMessages.length} filtrés cochés`
                             : 'Tous les messages cochés'
                           : isSomeFilteredMessagesSelected
-                          ? `Sélection partielle (${selectedFilteredCount}/${filteredScannedMessages.length})`
-                          : isMessageFilterActive
-                          ? `Cocher les ${filteredScannedMessages.length} filtrés`
-                          : 'Tout cocher'}
+                            ? `Sélection partielle (${selectedFilteredCount}/${filteredScannedMessages.length})`
+                            : isMessageFilterActive
+                              ? `Cocher les ${filteredScannedMessages.length} filtrés`
+                              : 'Tout cocher'}
                       </Text>
                     </TouchableOpacity>
 
@@ -1697,8 +1735,71 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                   <View style={{ height: 80 }} />
                 </ScrollView>
 
-                {/* Footer suppression avec choix de la méthode anti-ban */}
+                {/* Footer suppression avec choix de la méthode anti-ban & Mode Furtif */}
                 <View style={styles.previewBottomBar}>
+                  {/* Mode Furtif / Ghosting Anti-logs */}
+                  <TouchableOpacity
+                    style={[
+                      styles.ghostModeBar,
+                      isGhostModeEnabled && styles.ghostModeBarActive,
+                    ]}
+                    onPress={() => setIsGhostModeEnabled(!isGhostModeEnabled)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.ghostModeBarLeft}>
+                      <View
+                        style={[
+                          styles.ghostModeIconCircle,
+                          {
+                            backgroundColor: isGhostModeEnabled ? '#8B5CF620' : theme.bg.raised,
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name={isGhostModeEnabled ? 'eye-off' : 'eye-off-outline'}
+                          size={15}
+                          color={isGhostModeEnabled ? '#8B5CF6' : theme.text.muted}
+                        />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text
+                            style={[
+                              styles.ghostModeBarTitle,
+                              isGhostModeEnabled && { color: '#8B5CF6', fontWeight: '700' },
+                            ]}
+                          >
+                            Mode Furtif (Anti-Logs)
+                          </Text>
+                          <View
+                            style={[
+                              styles.ghostModeMiniBadge,
+                              isGhostModeEnabled && styles.ghostModeMiniBadgeActive,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.ghostModeMiniBadgeText,
+                                isGhostModeEnabled && styles.ghostModeMiniBadgeTextActive,
+                              ]}
+                            >
+                              {isGhostModeEnabled ? 'ACTIF' : 'OPTION'}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={styles.ghostModeBarSub} numberOfLines={1}>
+                          Écrase avec « . » avant suppression (trompe Carl-bot & Dyno)
+                        </Text>
+                      </View>
+                    </View>
+                    <Switch
+                      value={isGhostModeEnabled}
+                      onValueChange={setIsGhostModeEnabled}
+                      trackColor={{ true: '#8B5CF6', false: theme.bg.raised }}
+                      thumbColor={isGhostModeEnabled ? '#FFF' : '#A0AEC0'}
+                    />
+                  </TouchableOpacity>
+
                   {/* Sélecteur de méthode de suppression */}
                   <View style={styles.speedSelectorBox}>
                     <View style={styles.speedSelectorHeader}>
@@ -1860,8 +1961,8 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                           ? `Supprimer les ${selectedFilteredCount} messages filtrés`
                           : 'Supprimer le message filtré'
                         : isMessageFilterActive
-                        ? `Supprimer ${selectedMessageIds.size} messages (${selectedFilteredCount} filtrés)`
-                        : `Supprimer ${formatCount(selectedMessageIds.size, 'message', 'messages')}`}
+                          ? `Supprimer ${selectedMessageIds.size} messages (${selectedFilteredCount} filtrés)`
+                          : `Supprimer ${formatCount(selectedMessageIds.size, 'message', 'messages')}`}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1883,6 +1984,12 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     ? '🛡️ Protection anti-ban active (1 seconde par message)'
                     : `Vitesse de suppression : ${speedDelayMs} ms par message`}
                 </Text>
+                {isGhostModeEnabled && (
+                  <View style={styles.ghostModeDeletingBadge}>
+                    <Ionicons name="eye-off" size={12} color="#8B5CF6" style={{ marginRight: 4 }} />
+                    <Text style={styles.ghostModeDeletingBadgeText}>Mode Furtif actif (anti-logs)</Text>
+                  </View>
+                )}
 
                 {/* Barre de progression */}
                 <View style={styles.progressTrack}>
@@ -1986,8 +2093,8 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                         {selectedGuild?.id === 'all_guilds'
                           ? 'Tous les serveurs'
                           : selectedGuild?.id === 'dms'
-                          ? 'Messages Privés (DMs)'
-                          : selectedGuild?.name ?? 'Discord'}
+                            ? 'Messages Privés (DMs)'
+                            : selectedGuild?.name ?? 'Discord'}
                       </Text>
                     </View>
 
@@ -2034,6 +2141,21 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                         {speedDelayMs === 1000 ? 'Anti-ban (1s / message)' : `${speedDelayMs} ms / message`}
                       </Text>
                     </View>
+
+                    {/* Mode Furtif (si actif) */}
+                    {isGhostModeEnabled && (
+                      <View style={styles.summaryRow}>
+                        <View style={styles.summaryRowLeft}>
+                          <View style={[styles.summaryIconMini, { backgroundColor: '#8B5CF615' }]}>
+                            <Ionicons name="eye-off" size={13} color="#8B5CF6" />
+                          </View>
+                          <Text style={styles.summaryRowLabel}>Mode Furtif</Text>
+                        </View>
+                        <Text style={[styles.summaryRowValue, { color: '#8B5CF6', fontWeight: '700' }]}>
+                          Anti-Logs Actif 👻
+                        </Text>
+                      </View>
+                    )}
 
                     {/* Historique Cleanly */}
                     <View style={[styles.summaryRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
@@ -3339,5 +3461,93 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
     paddingTop: 10,
+  },
+  antiLogsBadge: {
+    backgroundColor: '#8B5CF620',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 6,
+    borderWidth: 1,
+    borderColor: '#8B5CF640',
+  },
+  antiLogsBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#8B5CF6',
+  },
+  ghostModeBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.bg.surface,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+  },
+  ghostModeBarActive: {
+    borderColor: '#8B5CF660',
+    backgroundColor: '#8B5CF608',
+  },
+  ghostModeBarLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  ghostModeIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ghostModeBarTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.text.primary,
+  },
+  ghostModeMiniBadge: {
+    backgroundColor: theme.bg.raised,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 3,
+    marginLeft: 6,
+  },
+  ghostModeMiniBadgeActive: {
+    backgroundColor: '#8B5CF625',
+  },
+  ghostModeMiniBadgeText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: theme.text.muted,
+  },
+  ghostModeMiniBadgeTextActive: {
+    color: '#8B5CF6',
+  },
+  ghostModeBarSub: {
+    fontSize: 10,
+    color: theme.text.secondary,
+    marginTop: 1,
+  },
+  ghostModeDeletingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    backgroundColor: '#8B5CF618',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#8B5CF630',
+  },
+  ghostModeDeletingBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#8B5CF6',
   },
 });
