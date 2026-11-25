@@ -23,6 +23,7 @@ import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { theme } from '../constants/theme';
 import { useHistoryStore } from '../store/historyStore';
 import { shareMessagesBackup, saveBackupLocally } from '../utils/backupService';
+import { CustomAlertModal, CustomAlertButton } from './CustomAlertModal';
 import {
   getDiscordGuilds,
   getDiscordChannels,
@@ -57,13 +58,6 @@ const plural = (count: number, singular: string, pluralForm: string) =>
 
 const formatCount = (count: number, singular: string, pluralForm: string) =>
   `${count} ${count > 1 ? pluralForm : singular}`;
-
-interface CustomAlertButton {
-  text: string;
-  style?: 'cancel' | 'destructive' | 'primary' | 'default';
-  icon?: string;
-  onPress?: () => void;
-}
 
 interface CustomAlertState {
   visible: boolean;
@@ -2102,109 +2096,14 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
         )}
 
         {/* Modale de Dialogue / Alerte personnalisée Multiplateforme (iOS & Android) */}
-        <Modal
+        <CustomAlertModal
           visible={customAlert.visible}
-          transparent
-          animationType="fade"
-          onRequestClose={closeAlert}
-        >
-          <View style={styles.customAlertOverlay}>
-            <View style={styles.customAlertBox}>
-              {/* Icône thématique */}
-              <View
-                style={[
-                  styles.customAlertIconCircle,
-                  customAlert.type === 'danger' && { backgroundColor: '#EF444415' },
-                  customAlert.type === 'warning' && { backgroundColor: '#F59E0B15' },
-                  customAlert.type === 'info' && { backgroundColor: '#5865F215' },
-                  customAlert.type === 'success' && { backgroundColor: '#10B98115' },
-                ]}
-              >
-                <Ionicons
-                  name={
-                    customAlert.type === 'danger'
-                      ? 'trash-outline'
-                      : customAlert.type === 'warning'
-                      ? 'warning-outline'
-                      : customAlert.type === 'success'
-                      ? 'checkmark-circle-outline'
-                      : 'information-circle-outline'
-                  }
-                  size={32}
-                  color={
-                    customAlert.type === 'danger'
-                      ? '#EF4444'
-                      : customAlert.type === 'warning'
-                      ? '#F59E0B'
-                      : customAlert.type === 'success'
-                      ? '#10B981'
-                      : '#5865F2'
-                  }
-                />
-              </View>
-
-              <Text style={styles.customAlertTitle}>{customAlert.title}</Text>
-              <Text style={styles.customAlertMessage}>{customAlert.message}</Text>
-
-              {/* Boutons d'action */}
-              <View
-                style={[
-                  styles.customAlertBtnContainer,
-                  customAlert.buttons.length > 2 && { flexDirection: 'column' },
-                ]}
-              >
-                {customAlert.buttons.map((btn, idx) => {
-                  const isCancel = btn.style === 'cancel';
-                  const isDestructive = btn.style === 'destructive';
-                  const isPrimary = btn.style === 'primary';
-
-                  return (
-                    <TouchableOpacity
-                      key={idx}
-                      style={[
-                        styles.customAlertBtn,
-                        isCancel && styles.customAlertBtnCancel,
-                        isDestructive && styles.customAlertBtnDestructive,
-                        isPrimary && styles.customAlertBtnPrimary,
-                        customAlert.buttons.length > 2 && { width: '100%', marginBottom: 8 },
-                      ]}
-                      onPress={() => {
-                        closeAlert();
-                        btn.onPress?.();
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      {btn.icon && (
-                        <Ionicons
-                          name={btn.icon}
-                          size={18}
-                          color={
-                            isDestructive || isPrimary
-                              ? '#FFF'
-                              : isCancel
-                              ? theme.text.secondary
-                              : '#5865F2'
-                          }
-                          style={{ marginRight: 6 }}
-                        />
-                      )}
-                      <Text
-                        style={[
-                          styles.customAlertBtnText,
-                          isCancel && styles.customAlertBtnTextCancel,
-                          isDestructive && styles.customAlertBtnTextDestructive,
-                          isPrimary && styles.customAlertBtnTextPrimary,
-                        ]}
-                      >
-                        {btn.text}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          </View>
-        </Modal>
+          type={customAlert.type}
+          title={customAlert.title}
+          message={customAlert.message}
+          buttons={customAlert.buttons}
+          onClose={closeAlert}
+        />
       </SafeAreaView>
     </Modal>
   );
@@ -3440,88 +3339,5 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
     paddingTop: 10,
-  },
-  // Modale d'Alerte / Confirmation personnalisée Multiplateforme (iOS & Android)
-  customAlertOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  customAlertBox: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: '#FFF',
-    borderRadius: theme.radius.lg,
-    padding: 22,
-    alignItems: 'center',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-  },
-  customAlertIconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  customAlertTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: theme.text.primary,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  customAlertMessage: {
-    fontSize: 14,
-    color: theme.text.secondary,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 20,
-  },
-  customAlertBtnContainer: {
-    flexDirection: 'row',
-    width: '100%',
-    gap: 10,
-  },
-  customAlertBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.bg.raised,
-  },
-  customAlertBtnCancel: {
-    backgroundColor: theme.bg.raised,
-    borderWidth: 1,
-    borderColor: theme.border.default,
-  },
-  customAlertBtnDestructive: {
-    backgroundColor: theme.accent.red,
-  },
-  customAlertBtnPrimary: {
-    backgroundColor: '#5865F2',
-  },
-  customAlertBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: theme.text.primary,
-  },
-  customAlertBtnTextCancel: {
-    color: theme.text.secondary,
-  },
-  customAlertBtnTextDestructive: {
-    color: '#FFF',
-  },
-  customAlertBtnTextPrimary: {
-    color: '#FFF',
   },
 });

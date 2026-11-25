@@ -20,6 +20,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { theme, PLATFORM_COLORS } from '../constants/theme';
 import { useHistoryStore, HistoryRecord } from '../store/historyStore';
 import { loadLocalBackup, shareMessagesBackup } from '../utils/backupService';
+import { CustomAlertModal, CustomAlertButton } from '../components/CustomAlertModal';
 import type { Platform } from '../types';
 import type { DiscordMessage } from '../api/discord';
 
@@ -65,6 +66,35 @@ export function HistoryScreen() {
   const [isBackupLoading, setIsBackupLoading] = useState(false);
   const [backupSearch, setBackupSearch] = useState('');
 
+  // Modale d'alerte / confirmation personnalisée
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    type?: 'info' | 'warning' | 'danger' | 'success';
+    icon?: string;
+    title: string;
+    message: string;
+    buttons: CustomAlertButton[];
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    buttons: [],
+  });
+
+  const showAlert = (
+    title: string,
+    message: string,
+    buttons: CustomAlertButton[],
+    type: 'info' | 'warning' | 'danger' | 'success' = 'info',
+    icon?: string
+  ) => {
+    setAlertConfig({ visible: true, title, message, buttons, type, icon });
+  };
+
+  const closeAlert = () => {
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
+  };
+
   useEffect(() => {
     loadHistory();
   }, [loadHistory]);
@@ -81,20 +111,61 @@ export function HistoryScreen() {
   const handleExportFromModal = () => {
     if (!viewingBackupRecord || backupMessages.length === 0) return;
 
-    Alert.alert(
-      '📤 Exporter et Envoyer la sauvegarde',
-      `Choisissez le format pour envoyer ces ${backupMessages.length} message(s) archivé(s) :`,
+    showAlert(
+      'Exporter et envoyer la sauvegarde',
+      `Choisissez le format d'envoi pour ces ${backupMessages.length > 1 ? `${backupMessages.length} messages archivés` : '1 message archivé'} :`,
       [
-        { text: 'Annuler', style: 'cancel' },
         {
-          text: '📄 Fichier Texte (.TXT)',
+          text: 'Fichier Texte (.TXT)',
+          style: 'primary',
+          icon: 'document-text-outline',
           onPress: () => shareMessagesBackup(backupMessages, viewingBackupRecord.targetName, 'txt'),
         },
         {
-          text: '📊 Données (.JSON)',
+          text: 'Données complètes (.JSON)',
+          style: 'secondary',
+          icon: 'code-slash-outline',
           onPress: () => shareMessagesBackup(backupMessages, viewingBackupRecord.targetName, 'json'),
         },
-      ]
+        { text: 'Annuler', style: 'cancel', icon: 'close-outline' },
+      ],
+      'info',
+      'paper-plane-outline'
+    );
+  };
+
+  const handleExportRecord = async (record: HistoryRecord) => {
+    const msgs = await loadLocalBackup(record.id);
+    if (!msgs || msgs.length === 0) {
+      showAlert(
+        'Aucune archive disponible',
+        'Cette session ne contient pas de copie de sauvegarde locale.',
+        [{ text: 'Compris', style: 'primary', icon: 'checkmark' }],
+        'info'
+      );
+      return;
+    }
+
+    showAlert(
+      'Exporter la sauvegarde',
+      `Session : ${record.targetName} (${msgs.length > 1 ? `${msgs.length} messages sauvegardés` : '1 message sauvegardé'})`,
+      [
+        {
+          text: 'Fichier Texte (.TXT)',
+          style: 'primary',
+          icon: 'document-text-outline',
+          onPress: () => shareMessagesBackup(msgs, record.targetName, 'txt'),
+        },
+        {
+          text: 'Données complètes (.JSON)',
+          style: 'secondary',
+          icon: 'code-slash-outline',
+          onPress: () => shareMessagesBackup(msgs, record.targetName, 'json'),
+        },
+        { text: 'Annuler', style: 'cancel', icon: 'close-outline' },
+      ],
+      'info',
+      'share-social-outline'
     );
   };
 
@@ -120,32 +191,36 @@ export function HistoryScreen() {
   }, [records]);
 
   const handleClearAll = () => {
-    Alert.alert(
+    showAlert(
       'Effacer tout l’historique',
       'Voulez-vous vraiment supprimer tout l’historique des sessions de nettoyage ? Cette action est irréversible.',
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: 'Annuler', style: 'cancel', icon: 'close-outline' },
         {
-          text: 'Effacer',
+          text: 'Effacer l’historique',
           style: 'destructive',
+          icon: 'trash',
           onPress: () => clearHistory(),
         },
-      ]
+      ],
+      'danger'
     );
   };
 
   const handleDeleteItem = (id: string, targetName: string) => {
-    Alert.alert(
+    showAlert(
       'Supprimer de l’historique',
       `Retirer la session « ${targetName} » de la liste ?`,
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: 'Annuler', style: 'cancel', icon: 'close-outline' },
         {
           text: 'Supprimer',
           style: 'destructive',
+          icon: 'trash',
           onPress: () => deleteRecord(id),
         },
-      ]
+      ],
+      'danger'
     );
   };
 
@@ -237,6 +312,7 @@ export function HistoryScreen() {
               record={item}
               onDelete={() => handleDeleteItem(item.id, item.targetName)}
               onOpenBackup={() => handleOpenBackup(item)}
+              onExportBackup={() => handleExportRecord(item)}
             />
           ))
         )}
@@ -372,6 +448,17 @@ export function HistoryScreen() {
           </View>
         </SafeAreaView>
       </Modal>
+
+      {/* Modale d'alerte et de confirmation 100% Cross-Platform */}
+      <CustomAlertModal
+        visible={alertConfig.visible}
+        type={alertConfig.type}
+        icon={alertConfig.icon}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onClose={closeAlert}
+      />
     </ScrollView>
   );
 }
@@ -380,37 +467,15 @@ function HistoryCard({
   record,
   onDelete,
   onOpenBackup,
+  onExportBackup,
 }: {
   record: HistoryRecord;
   onDelete: () => void;
   onOpenBackup?: () => void;
+  onExportBackup?: () => void;
 }) {
   const pColor = PLATFORM_COLORS[record.platform] ?? theme.accent.primary;
   const isCompleted = record.status === 'completed';
-
-  const handleExportBackup = async () => {
-    const msgs = await loadLocalBackup(record.id);
-    if (!msgs || msgs.length === 0) {
-      Alert.alert('Information', 'Cette session ne contient pas de copie de sauvegarde disponible.');
-      return;
-    }
-
-    Alert.alert(
-      '💾 Exporter la sauvegarde',
-      `Session : ${record.targetName} (${msgs.length} messages sauvegardés)`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: '📄 Fichier Texte (.TXT)',
-          onPress: () => shareMessagesBackup(msgs, record.targetName, 'txt'),
-        },
-        {
-          text: '📊 Données (.JSON)',
-          onPress: () => shareMessagesBackup(msgs, record.targetName, 'json'),
-        },
-      ]
-    );
-  };
 
   return (
     <View style={styles.card}>
@@ -531,7 +596,7 @@ function HistoryCard({
 
           <TouchableOpacity
             style={styles.backupShareBtn}
-            onPress={handleExportBackup}
+            onPress={onExportBackup}
             activeOpacity={0.75}
           >
             <Ionicons name="paper-plane-outline" size={13} color="#5865F2" style={{ marginRight: 5 }} />
