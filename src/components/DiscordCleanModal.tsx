@@ -51,6 +51,28 @@ type Step =
   | 'deleting'
   | 'complete';
 
+// Helpers grammaticaux français : suppression des (s) et accord dynamique selon la quantité
+const plural = (count: number, singular: string, pluralForm: string) =>
+  count > 1 ? pluralForm : singular;
+
+const formatCount = (count: number, singular: string, pluralForm: string) =>
+  `${count} ${count > 1 ? pluralForm : singular}`;
+
+interface CustomAlertButton {
+  text: string;
+  style?: 'cancel' | 'destructive' | 'primary' | 'default';
+  icon?: string;
+  onPress?: () => void;
+}
+
+interface CustomAlertState {
+  visible: boolean;
+  type?: 'info' | 'warning' | 'danger' | 'success';
+  title: string;
+  message: string;
+  buttons: CustomAlertButton[];
+}
+
 function getGuildIconUrl(guildId?: string, iconHash?: string | null): string | null {
   if (!guildId || !iconHash) return null;
   return `https://cdn.discordapp.com/icons/${guildId}/${iconHash}.png?size=128`;
@@ -158,6 +180,32 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
   const scanAbortedRef = useRef(false);
 
   // Reset à l'ouverture
+  const [customAlert, setCustomAlert] = useState<CustomAlertState>({
+    visible: false,
+    title: '',
+    message: '',
+    buttons: [],
+  });
+
+  const showAlert = (
+    title: string,
+    message: string,
+    buttons: CustomAlertButton[] = [{ text: 'OK', style: 'primary' }],
+    type: 'info' | 'warning' | 'danger' | 'success' = 'info'
+  ) => {
+    setCustomAlert({
+      visible: true,
+      title,
+      message,
+      buttons,
+      type,
+    });
+  };
+
+  const closeAlert = () => {
+    setCustomAlert((prev) => ({ ...prev, visible: false }));
+  };
+
   useEffect(() => {
     if (visible && token) {
       loadGuilds();
@@ -314,7 +362,12 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
   // 3. Scanner les messages sur les salons sélectionnés ou tous les serveurs (Optimisé & Parallélisé)
   const handleStartScan = async () => {
     if (selectedGuild?.id !== 'all_guilds' && selectedChannelIds.size === 0) {
-      Alert.alert('Attention', 'Veuillez sélectionner au moins un salon.');
+      showAlert(
+        'Sélection requise',
+        'Veuillez sélectionner au moins un salon avant de lancer la recherche.',
+        [{ text: 'Compris', style: 'primary', icon: 'checkmark' }],
+        'warning'
+      );
       return;
     }
 
@@ -353,7 +406,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
     try {
       // CAS 1 : Nettoyage global sur TOUS les serveurs Discord
       if (selectedGuild?.id === 'all_guilds') {
-        setLoadingText(`Scan global sur ${guilds.length} serveurs...`);
+        setLoadingText(`Scan global sur ${formatCount(guilds.length, 'serveur', 'serveurs')}...`);
         const BATCH_SIZE = 3;
         let processedGuilds = 0;
         const trimmedKeyword = filterKeyword.trim();
@@ -407,7 +460,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
 
           processedGuilds += batch.length;
           setLoadingText(
-            `Analyse : ${Math.min(processedGuilds, guilds.length)}/${guilds.length} serveurs • ${allFound.length} message(s) trouvé(s)`
+            `Analyse : ${Math.min(processedGuilds, guilds.length)}/${guilds.length} ${plural(guilds.length, 'serveur', 'serveurs')} • ${formatCount(allFound.length, 'message trouvé', 'messages trouvés')}`
           );
         }
       } else {
@@ -491,7 +544,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
 
             processedCount += batch.length;
             setLoadingText(
-              `Analyse : ${Math.min(processedCount, channelList.length)}/${channelList.length} salons • ${allFound.length} message(s) trouvé(s)`
+              `Analyse : ${Math.min(processedCount, channelList.length)}/${channelList.length} ${plural(channelList.length, 'salon', 'salons')} • ${formatCount(allFound.length, 'message trouvé', 'messages trouvés')}`
             );
           }
         }
@@ -501,7 +554,12 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
       setSelectedMessageIds(new Set(allFound.map((m) => m.id))); // Tous cochés par défaut
 
       if (allFound.length === 0) {
-        Alert.alert('Aucun message', 'Aucun message ne correspond à vos filtres.');
+        showAlert(
+          'Aucun message trouvé',
+          'Aucun message ne correspond à vos critères de recherche.',
+          [{ text: 'Modifier les filtres', style: 'primary', icon: 'options-outline' }],
+          'info'
+        );
       } else {
         setStep('preview_messages');
       }
@@ -588,56 +646,73 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
   const handleOpenBackupPrompt = () => {
     const messagesToBackup = scannedMessages.filter((m) => selectedMessageIds.has(m.id));
     if (messagesToBackup.length === 0) {
-      Alert.alert('Attention', 'Veuillez sélectionner au moins un message à sauvegarder.');
+      showAlert(
+        'Sélection requise',
+        'Veuillez sélectionner au moins un message à sauvegarder.',
+        [{ text: 'D’accord', style: 'primary', icon: 'checkmark' }],
+        'warning'
+      );
       return;
     }
 
     const targetName =
       selectedGuild?.id === 'all_guilds'
-        ? `Tous les serveurs (${guilds.length} serveurs)`
+        ? `Tous les serveurs (${formatCount(guilds.length, 'serveur', 'serveurs')})`
         : selectedGuild?.id === 'dms'
         ? 'Messages Privés (DMs)'
-        : `${selectedGuild?.name ?? 'Discord'} (${selectedChannelIds.size} salons)`;
+        : `${selectedGuild?.name ?? 'Discord'} (${formatCount(selectedChannelIds.size, 'salon', 'salons')})`;
 
-    Alert.alert(
-      '💾 Sauvegarder les messages',
-      `Choisissez le format d'export pour vos ${messagesToBackup.length} message(s) :`,
+    showAlert(
+      'Sauvegarder les messages',
+      `Choisissez le format d'exportation pour vos ${formatCount(messagesToBackup.length, 'message', 'messages')} :`,
       [
-        { text: 'Annuler', style: 'cancel' },
         {
-          text: '📄 Fichier Texte (.TXT)',
+          text: 'Fichier Texte (.TXT)',
+          style: 'primary',
+          icon: 'document-text-outline',
           onPress: () => shareMessagesBackup(messagesToBackup, targetName, 'txt'),
         },
         {
-          text: '📊 Données complètes (.JSON)',
+          text: 'Données complètes (.JSON)',
+          style: 'default',
+          icon: 'code-slash-outline',
           onPress: () => shareMessagesBackup(messagesToBackup, targetName, 'json'),
         },
-      ]
+        { text: 'Annuler', style: 'cancel', icon: 'close-outline' },
+      ],
+      'info'
     );
   };
 
   // 4. Lancer la suppression
   const handleConfirmDeletion = () => {
     if (selectedMessageIds.size === 0) {
-      Alert.alert('Attention', 'Veuillez cocher au moins un message à supprimer.');
+      showAlert(
+        'Sélection requise',
+        'Veuillez cocher au moins un message à supprimer.',
+        [{ text: 'Compris', style: 'primary', icon: 'checkmark' }],
+        'warning'
+      );
       return;
     }
 
     const backupNotice = isBackupEnabled
       ? 'Une copie de sauvegarde sera enregistrée dans vos archives Cleanly.'
-      : 'Attention : la sauvegarde est désactivée.';
+      : 'Attention : la sauvegarde de précaution est désactivée.';
 
-    Alert.alert(
-      '⚠️ Confirmer la suppression',
-      `Êtes-vous sûr de vouloir supprimer définitivement ${selectedMessageIds.size} message(s) ? ${backupNotice}`,
+    showAlert(
+      'Confirmer la suppression',
+      `Êtes-vous sûr de vouloir supprimer définitivement ${formatCount(selectedMessageIds.size, 'message', 'messages')} ?\n\n${backupNotice}`,
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: 'Annuler', style: 'cancel', icon: 'close-outline' },
         {
-          text: 'Supprimer',
+          text: `Supprimer ${formatCount(selectedMessageIds.size, 'message', 'messages')}`,
           style: 'destructive',
+          icon: 'trash',
           onPress: executeDeletion,
         },
-      ]
+      ],
+      'danger'
     );
   };
 
@@ -718,7 +793,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
       // Laisser l'utilisateur admirer la barre pleine à 100% et le compteur complet pendant exactement 1 seconde
       await new Promise<void>((resolve) => setTimeout(() => resolve(), 1000));
     } else {
-      setCurrentStatus(`Arrêt demandé : ${count} message(s) supprimé(s).`);
+      setCurrentStatus(`Arrêt demandé : ${formatCount(count, 'message supprimé', 'messages supprimés')}.`);
       await new Promise<void>((resolve) => setTimeout(() => resolve(), 800));
     }
 
@@ -743,20 +818,32 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
   };
 
   const stopDeletion = () => {
-    Alert.alert('Arrêter', 'Voulez-vous interrompre le nettoyage ?', [
-      { text: 'Continuer', style: 'cancel' },
-      {
-        text: 'Arrêter',
-        style: 'destructive',
-        onPress: () => {
-          stopRef.current = true;
+    showAlert(
+      'Interrompre le nettoyage ?',
+      'Voulez-vous vraiment stopper la suppression en cours ? Les messages déjà supprimés ne peuvent pas être restaurés.',
+      [
+        { text: 'Continuer le nettoyage', style: 'cancel', icon: 'play-outline' },
+        {
+          text: 'Arrêter le nettoyage',
+          style: 'destructive',
+          icon: 'stop-circle-outline',
+          onPress: () => {
+            stopRef.current = true;
+          },
         },
-      },
-    ]);
+      ],
+      'warning'
+    );
   };
 
   // Gestion du retour physique Android (Hardware Back Button) et bouton retour header
   const handleBackAction = () => {
+    // 0. Si une alerte personnalisée est ouverte, la refermer en priorité
+    if (customAlert.visible) {
+      closeAlert();
+      return true;
+    }
+
     // 1. Si un menu déroulant est ouvert, le refermer en priorité
     if (isDateDropdownOpen) {
       setIsDateDropdownOpen(false);
@@ -769,20 +856,22 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
 
     // 2. Si une suppression est en cours, confirmer avant d'interrompre
     if (step === 'deleting') {
-      Alert.alert(
+      showAlert(
         'Suppression en cours',
-        'Voulez-vous vraiment stopper le nettoyage et quitter ?',
+        'Une opération de nettoyage est active. Voulez-vous vraiment stopper le nettoyage et quitter ?',
         [
-          { text: 'Continuer la suppression', style: 'cancel' },
+          { text: 'Poursuivre la suppression', style: 'cancel', icon: 'play-outline' },
           {
             text: 'Stopper et quitter',
             style: 'destructive',
+            icon: 'exit-outline',
             onPress: () => {
               stopRef.current = true;
               onClose();
             },
           },
-        ]
+        ],
+        'danger'
       );
       return true;
     }
@@ -1395,13 +1484,13 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     <View style={{ flex: 1, marginRight: 8 }}>
                       <Text style={styles.previewTitle}>
                         {isMessageFilterActive
-                          ? `🎯 ${filteredScannedMessages.length} message(s) filtré(s)`
-                          : `🎯 ${scannedMessages.length} message(s) trouvé(s)`}
+                          ? `🎯 ${formatCount(filteredScannedMessages.length, 'message filtré', 'messages filtrés')}`
+                          : `🎯 ${formatCount(scannedMessages.length, 'message trouvé', 'messages trouvés')}`}
                       </Text>
                       <Text style={styles.previewSub}>
                         {isMessageFilterActive
-                          ? `${selectedFilteredCount} sélectionné(s) dans le filtre • ${selectedMessageIds.size} au total`
-                          : `${selectedMessageIds.size} sélectionné(s) • ~${estimatedSeconds}s de suppression`}
+                          ? `${formatCount(selectedFilteredCount, 'sélectionné', 'sélectionnés')} dans le filtre • ${selectedMessageIds.size} au total`
+                          : `${formatCount(selectedMessageIds.size, 'sélectionné', 'sélectionnés')} • ~${estimatedSeconds}s de suppression`}
                       </Text>
                     </View>
                     <View style={[styles.tableStatsBadge, isMessageFilterActive && styles.tableStatsBadgeFiltered]}>
@@ -1491,7 +1580,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                       </TouchableOpacity>
                     ) : (
                       <Text style={styles.previewShowingCountText}>
-                        {filteredScannedMessages.length} affiché(s)
+                        {formatCount(filteredScannedMessages.length, 'affiché', 'affichés')}
                       </Text>
                     )}
                   </View>
@@ -1603,7 +1692,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                             {msg.attachments && msg.attachments.length > 0 && (
                               <View style={styles.mediaBadge}>
                                 <Ionicons name="image" size={12} color="#5865F2" style={{ marginRight: 4 }} />
-                                <Text style={styles.mediaBadgeText}>{msg.attachments.length} fichier(s)</Text>
+                                <Text style={styles.mediaBadgeText}>{formatCount(msg.attachments.length, 'fichier', 'fichiers')}</Text>
                               </View>
                             )}
                           </View>
@@ -1748,7 +1837,10 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     <View style={styles.filterSyncWarningBar}>
                       <Ionicons name="information-circle" size={15} color="#D97706" style={{ marginRight: 6 }} />
                       <Text style={styles.filterSyncWarningText} numberOfLines={1}>
-                        {selectedFilteredCount} sélectionné(s) visible(s) • {selectedMessageIds.size - selectedFilteredCount} autre(s) hors filtre
+                        {formatCount(selectedFilteredCount, 'sélectionné visible', 'sélectionnés visibles')} •{' '}
+                        {selectedMessageIds.size - selectedFilteredCount > 1
+                          ? `${selectedMessageIds.size - selectedFilteredCount} autres hors filtre`
+                          : '1 autre hors filtre'}
                       </Text>
                       <TouchableOpacity
                         onPress={selectOnlyFilteredMessages}
@@ -1770,10 +1862,12 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     <Ionicons name="trash" size={20} color="#FFF" style={{ marginRight: 8 }} />
                     <Text style={styles.deleteBtnText}>
                       {isMessageFilterActive && selectedMessageIds.size === selectedFilteredCount
-                        ? `Supprimer les ${selectedFilteredCount} message(s) filtré(s)`
+                        ? selectedFilteredCount > 1
+                          ? `Supprimer les ${selectedFilteredCount} messages filtrés`
+                          : 'Supprimer le message filtré'
                         : isMessageFilterActive
-                        ? `Supprimer ${selectedMessageIds.size} message(s) (${selectedFilteredCount} filtrés)`
-                        : `Supprimer ${selectedMessageIds.size} message${selectedMessageIds.size > 1 ? 's' : ''}`}
+                        ? `Supprimer ${selectedMessageIds.size} messages (${selectedFilteredCount} filtrés)`
+                        : `Supprimer ${formatCount(selectedMessageIds.size, 'message', 'messages')}`}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -2006,6 +2100,111 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
             )}
           </View>
         )}
+
+        {/* Modale de Dialogue / Alerte personnalisée Multiplateforme (iOS & Android) */}
+        <Modal
+          visible={customAlert.visible}
+          transparent
+          animationType="fade"
+          onRequestClose={closeAlert}
+        >
+          <View style={styles.customAlertOverlay}>
+            <View style={styles.customAlertBox}>
+              {/* Icône thématique */}
+              <View
+                style={[
+                  styles.customAlertIconCircle,
+                  customAlert.type === 'danger' && { backgroundColor: '#EF444415' },
+                  customAlert.type === 'warning' && { backgroundColor: '#F59E0B15' },
+                  customAlert.type === 'info' && { backgroundColor: '#5865F215' },
+                  customAlert.type === 'success' && { backgroundColor: '#10B98115' },
+                ]}
+              >
+                <Ionicons
+                  name={
+                    customAlert.type === 'danger'
+                      ? 'trash-outline'
+                      : customAlert.type === 'warning'
+                      ? 'warning-outline'
+                      : customAlert.type === 'success'
+                      ? 'checkmark-circle-outline'
+                      : 'information-circle-outline'
+                  }
+                  size={32}
+                  color={
+                    customAlert.type === 'danger'
+                      ? '#EF4444'
+                      : customAlert.type === 'warning'
+                      ? '#F59E0B'
+                      : customAlert.type === 'success'
+                      ? '#10B981'
+                      : '#5865F2'
+                  }
+                />
+              </View>
+
+              <Text style={styles.customAlertTitle}>{customAlert.title}</Text>
+              <Text style={styles.customAlertMessage}>{customAlert.message}</Text>
+
+              {/* Boutons d'action */}
+              <View
+                style={[
+                  styles.customAlertBtnContainer,
+                  customAlert.buttons.length > 2 && { flexDirection: 'column' },
+                ]}
+              >
+                {customAlert.buttons.map((btn, idx) => {
+                  const isCancel = btn.style === 'cancel';
+                  const isDestructive = btn.style === 'destructive';
+                  const isPrimary = btn.style === 'primary';
+
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[
+                        styles.customAlertBtn,
+                        isCancel && styles.customAlertBtnCancel,
+                        isDestructive && styles.customAlertBtnDestructive,
+                        isPrimary && styles.customAlertBtnPrimary,
+                        customAlert.buttons.length > 2 && { width: '100%', marginBottom: 8 },
+                      ]}
+                      onPress={() => {
+                        closeAlert();
+                        btn.onPress?.();
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      {btn.icon && (
+                        <Ionicons
+                          name={btn.icon}
+                          size={18}
+                          color={
+                            isDestructive || isPrimary
+                              ? '#FFF'
+                              : isCancel
+                              ? theme.text.secondary
+                              : '#5865F2'
+                          }
+                          style={{ marginRight: 6 }}
+                        />
+                      )}
+                      <Text
+                        style={[
+                          styles.customAlertBtnText,
+                          isCancel && styles.customAlertBtnTextCancel,
+                          isDestructive && styles.customAlertBtnTextDestructive,
+                          isPrimary && styles.customAlertBtnTextPrimary,
+                        ]}
+                      >
+                        {btn.text}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </Modal>
   );
@@ -3241,5 +3440,88 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
     paddingTop: 10,
+  },
+  // Modale d'Alerte / Confirmation personnalisée Multiplateforme (iOS & Android)
+  customAlertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  customAlertBox: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#FFF',
+    borderRadius: theme.radius.lg,
+    padding: 22,
+    alignItems: 'center',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+  },
+  customAlertIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  customAlertTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: theme.text.primary,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  customAlertMessage: {
+    fontSize: 14,
+    color: theme.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  customAlertBtnContainer: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 10,
+  },
+  customAlertBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.bg.raised,
+  },
+  customAlertBtnCancel: {
+    backgroundColor: theme.bg.raised,
+    borderWidth: 1,
+    borderColor: theme.border.default,
+  },
+  customAlertBtnDestructive: {
+    backgroundColor: theme.accent.red,
+  },
+  customAlertBtnPrimary: {
+    backgroundColor: '#5865F2',
+  },
+  customAlertBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.text.primary,
+  },
+  customAlertBtnTextCancel: {
+    color: theme.text.secondary,
+  },
+  customAlertBtnTextDestructive: {
+    color: '#FFF',
+  },
+  customAlertBtnTextPrimary: {
+    color: '#FFF',
   },
 });
