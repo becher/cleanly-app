@@ -1489,49 +1489,22 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
             {/* ================= ÉTAPE 4 : PRÉVISUALISATION DES MESSAGES ================= */}
             {step === 'preview_messages' && (
               <View style={{ flex: 1 }}>
-                {/* 1. ZONE FIXE EN HAUT : RÉCAPITULATIF AVEC CHECKBOX INTÉGRÉE + FILTRE DE RECHERCHE */}
+                {/* 1. ZONE FIXE EN HAUT : RÉCAPITULATIF + FILTRE DE RECHERCHE + CHECKBOX TOUT COCHER */}
                 <View style={styles.previewTopFilterContainer}>
-                  {/* En-tête : Checkbox Tout Cocher intégrée directement dans le titre & Compteur */}
+                  {/* En-tête : Titre & Compteur global synchronisés avec le filtre */}
                   <View style={styles.previewHeaderCompact}>
-                    <TouchableOpacity
-                      style={styles.tableSelectAllCompactBtn}
-                      onPress={toggleAllMessages}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name={
-                          isAllFilteredMessagesSelected
-                            ? 'checkbox'
-                            : isSomeFilteredMessagesSelected
-                              ? 'remove-circle'
-                              : 'square-outline'
-                        }
-                        size={22}
-                        color={
-                          isAllFilteredMessagesSelected || isSomeFilteredMessagesSelected
-                            ? theme.accent.red
-                            : theme.text.muted
-                        }
-                        style={{ marginRight: 8 }}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.previewTitle}>
-                          {isMessageFilterActive
-                            ? `🎯 ${formatCount(filteredScannedMessages.length, 'message filtré', 'messages filtrés')}`
-                            : `🎯 ${formatCount(scannedMessages.length, 'message trouvé', 'messages trouvés')}`}
-                        </Text>
-                        <Text style={styles.previewSub}>
-                          {isAllFilteredMessagesSelected
-                            ? isMessageFilterActive
-                              ? `Tous les ${filteredScannedMessages.length} filtrés cochés`
-                              : 'Tous les messages cochés'
-                            : isSomeFilteredMessagesSelected
-                              ? `${selectedFilteredCount} sélectionné${selectedFilteredCount > 1 ? 's' : ''} (${selectedMessageIds.size} au total)`
-                              : 'Appuyer pour tout cocher'}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={styles.previewTitle}>
+                        {isMessageFilterActive
+                          ? `🎯 ${formatCount(filteredScannedMessages.length, 'message filtré', 'messages filtrés')}`
+                          : `🎯 ${formatCount(scannedMessages.length, 'message trouvé', 'messages trouvés')}`}
+                      </Text>
+                      <Text style={styles.previewSub}>
+                        {isMessageFilterActive
+                          ? `${formatCount(selectedFilteredCount, 'sélectionné', 'sélectionnés')} dans le filtre • ${selectedMessageIds.size} au total`
+                          : `${formatCount(selectedMessageIds.size, 'sélectionné', 'sélectionnés')} • ~${estimatedSeconds}s de suppression`}
+                      </Text>
+                    </View>
                     <View style={[styles.tableStatsBadge, isMessageFilterActive && styles.tableStatsBadgeFiltered]}>
                       <Text style={[styles.tableStatsBadgeText, isMessageFilterActive && styles.tableStatsBadgeTextFiltered]}>
                         {isMessageFilterActive
@@ -1542,7 +1515,7 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                   </View>
 
                   {/* Zone de Recherche = LE FILTRE EN HAUT */}
-                  <View style={[styles.filterSearchBarBox, { marginTop: 4, marginBottom: 4 }]}>
+                  <View style={[styles.filterSearchBarBox, { marginTop: 4, marginBottom: 6 }]}>
                     <Ionicons name="search" size={17} color={theme.text.muted} style={{ marginRight: 8 }} />
                     <TextInput
                       style={styles.filterSearchInput}
@@ -1558,6 +1531,69 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                       >
                         <Ionicons name="close-circle" size={18} color={theme.text.muted} />
                       </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* Barre d'en-tête du tableau : Checkbox Tout Cocher sous le filtre */}
+                  <View style={styles.tableHeaderRow}>
+                    <TouchableOpacity
+                      style={styles.tableSelectAllBtn}
+                      onPress={toggleAllMessages}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={
+                          isAllFilteredMessagesSelected
+                            ? 'checkbox'
+                            : isSomeFilteredMessagesSelected
+                              ? 'remove-circle'
+                              : 'square-outline'
+                        }
+                        size={21}
+                        color={
+                          isAllFilteredMessagesSelected || isSomeFilteredMessagesSelected
+                            ? theme.accent.red
+                            : theme.text.muted
+                        }
+                        style={{ marginRight: 8 }}
+                      />
+                      <Text
+                        style={[
+                          styles.tableSelectAllText,
+                          (isAllFilteredMessagesSelected || isSomeFilteredMessagesSelected) && {
+                            color: theme.accent.red,
+                            fontWeight: '700',
+                          },
+                        ]}
+                      >
+                        {isAllFilteredMessagesSelected
+                          ? isMessageFilterActive
+                            ? `Tous les ${filteredScannedMessages.length} filtrés cochés`
+                            : 'Tous les messages cochés'
+                          : isSomeFilteredMessagesSelected
+                            ? `Sélection partielle (${selectedFilteredCount}/${filteredScannedMessages.length})`
+                            : isMessageFilterActive
+                              ? `Cocher les ${filteredScannedMessages.length} filtrés`
+                              : 'Tout cocher'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {/* Action rapide : isoler la sélection aux seuls messages filtrés si applicable */}
+                    {isMessageFilterActive && selectedMessageIds.size > selectedFilteredCount ? (
+                      <TouchableOpacity
+                        onPress={selectOnlyFilteredMessages}
+                        style={styles.isolateFilterBtn}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="funnel" size={11} color="#5865F2" style={{ marginRight: 4 }} />
+                        <Text style={styles.isolateFilterBtnText}>
+                          Garder uniquement ces {filteredScannedMessages.length}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <Text style={styles.previewShowingCountText}>
+                        {formatCount(filteredScannedMessages.length, 'affiché', 'affichés')}
+                      </Text>
                     )}
                   </View>
                 </View>
