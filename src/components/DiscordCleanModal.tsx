@@ -1459,63 +1459,35 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     </Text>
                   </View>
 
-                  {/* Options de Sauvegarde (Radiobox au lieu de Checkbox) */}
-                  <View style={styles.backupRadioGroup}>
-                    <Text style={styles.backupRadioGroupLabel}>SAUVEGARDE DE SÉCURITÉ (BACKUP) :</Text>
-                    <View style={styles.backupRadioRow}>
-                      <TouchableOpacity
-                        style={[
-                          styles.backupRadioItem,
-                          isBackupEnabled && styles.backupRadioItemActive,
-                        ]}
-                        onPress={() => setIsBackupEnabled(true)}
-                        activeOpacity={0.8}
-                      >
+                  {/* Option de Sauvegarde de précaution avec Switch (switchRow) */}
+                  <View style={styles.backupSwitchRow}>
+                    <View style={{ flex: 1, marginRight: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         <Ionicons
-                          name={isBackupEnabled ? 'radio-button-on' : 'radio-button-off'}
-                          size={18}
+                          name={isBackupEnabled ? 'shield-checkmark' : 'shield-outline'}
+                          size={15}
                           color={isBackupEnabled ? '#10B981' : theme.text.muted}
                           style={{ marginRight: 6 }}
                         />
-                        <Text
-                          style={[
-                            styles.backupRadioItemText,
-                            isBackupEnabled && styles.backupRadioItemTextActive,
-                          ]}
-                        >
-                          Sauvegarder l’archive
+                        <Text style={[styles.switchTitle, isBackupEnabled && { color: '#10B981', fontWeight: '700' }]}>
+                          Sauvegarde de précaution
                         </Text>
                         {isBackupEnabled && (
-                          <View style={styles.backupRadioMiniBadge}>
-                            <Ionicons name="shield-checkmark" size={12} color="#10B981" />
+                          <View style={styles.backupActiveBadge}>
+                            <Text style={styles.backupActiveBadgeText}>ARCHIVE ACTIVE</Text>
                           </View>
                         )}
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.backupRadioItem,
-                          !isBackupEnabled && styles.backupRadioItemActiveDanger,
-                        ]}
-                        onPress={() => setIsBackupEnabled(false)}
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons
-                          name={!isBackupEnabled ? 'radio-button-on' : 'radio-button-off'}
-                          size={18}
-                          color={!isBackupEnabled ? theme.accent.red : theme.text.muted}
-                          style={{ marginRight: 6 }}
-                        />
-                        <Text
-                          style={[
-                            styles.backupRadioItemText,
-                            !isBackupEnabled && styles.backupRadioItemTextDanger,
-                          ]}
-                        >
-                          Sans sauvegarde
-                        </Text>
-                      </TouchableOpacity>
+                      </View>
+                      <Text style={styles.switchSub} numberOfLines={1}>
+                        Archiver dans Cleanly pour relire ou exporter plus tard
+                      </Text>
                     </View>
+                    <Switch
+                      value={isBackupEnabled}
+                      onValueChange={setIsBackupEnabled}
+                      trackColor={{ true: '#10B981', false: theme.bg.raised }}
+                      thumbColor="#FFF"
+                    />
                   </View>
                 </View>
 
@@ -3075,57 +3047,17 @@ const styles = StyleSheet.create({
     color: theme.text.muted,
     fontWeight: '600',
   },
-  backupRadioGroup: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: theme.border.subtle,
-  },
-  backupRadioGroupLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: theme.text.muted,
-    letterSpacing: 0.5,
-    marginBottom: 6,
-  },
-  backupRadioRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  backupRadioItem: {
-    flex: 1,
+  backupSwitchRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#FFF',
-    paddingHorizontal: 10,
-    paddingVertical: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderRadius: theme.radius.md,
+    marginTop: 8,
     borderWidth: 1,
     borderColor: theme.border.subtle,
-  },
-  backupRadioItemActive: {
-    borderColor: '#10B981',
-    backgroundColor: '#10B9810C',
-  },
-  backupRadioItemActiveDanger: {
-    borderColor: theme.accent.red,
-    backgroundColor: '#FA3E3E0C',
-  },
-  backupRadioItemText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: theme.text.secondary,
-  },
-  backupRadioItemTextActive: {
-    color: '#10B981',
-    fontWeight: '700',
-  },
-  backupRadioItemTextDanger: {
-    color: theme.accent.red,
-    fontWeight: '700',
-  },
-  backupRadioMiniBadge: {
-    marginLeft: 4,
   },
   messagesResultScroll: {
     flex: 1,
