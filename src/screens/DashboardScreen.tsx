@@ -40,7 +40,10 @@ export function DashboardScreen() {
   const totalDeleted = useHistoryStore((s) => s.getTotalDeleted());
 
   const [cleaningAccount, setCleaningAccount] = useState<PlatformAccount | null>(null);
-  const [showRetentionModal, setShowRetentionModal] = useState(false);
+  const [showRetentionView, setShowRetentionView] = useState(false);
+  const [retentionCleanDays, setRetentionCleanDays] = useState<number | undefined>(undefined);
+  const [retentionGhostMode, setRetentionGhostMode] = useState<boolean | undefined>(undefined);
+  const [retentionIgnorePinned, setRetentionIgnorePinned] = useState<boolean | undefined>(undefined);
 
   const retentionRules = useRetentionStore((s) => s.rules);
   const anyActiveRule = retentionRules.find((r) => r.enabled);
@@ -52,7 +55,8 @@ export function DashboardScreen() {
     });
   }, [loadHistory]);
 
-  const handleClean = (account: PlatformAccount) => {
+  const handleClean = (account: PlatformAccount, days?: number) => {
+    setRetentionCleanDays(days);
     if (account.platform === 'discord') {
       setCleaningAccount(account);
     } else {
@@ -61,6 +65,44 @@ export function DashboardScreen() {
   };
 
   const recentRecords = records.slice(0, 3);
+
+  // VUE INTÉGRÉE D'AUTO-CLEAN & RÉTENTION (Le menu de navigation en bas reste 100% visible !)
+  if (showRetentionView) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.bg.base }}>
+        <RetentionModal
+          visible={true}
+          embedded={true}
+          onClose={() => setShowRetentionView(false)}
+          onTriggerClean={(acc, days, stealth, pinned) => {
+            setShowRetentionView(false);
+            setRetentionCleanDays(days);
+            setRetentionGhostMode(stealth);
+            setRetentionIgnorePinned(pinned);
+            setCleaningAccount(acc);
+          }}
+        />
+
+        {cleaningAccount?.platform === 'discord' && (
+          <DiscordCleanModal
+            visible={true}
+            token={cleaningAccount.token}
+            userId={cleaningAccount.id.replace('discord_', '')}
+            initialFilterDays={retentionCleanDays}
+            initialGhostMode={retentionGhostMode}
+            initialIgnorePinned={retentionIgnorePinned}
+            onClose={() => {
+              setCleaningAccount(null);
+              setRetentionCleanDays(undefined);
+            }}
+            onFinished={() => {
+              loadHistory();
+            }}
+          />
+        )}
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.page} showsVerticalScrollIndicator={false}>
@@ -90,7 +132,7 @@ export function DashboardScreen() {
       {accounts.length > 0 && (
         <TouchableOpacity
           style={[styles.retentionBanner, anyActiveRule && styles.retentionBannerActive]}
-          onPress={() => setShowRetentionModal(true)}
+          onPress={() => setShowRetentionView(true)}
           activeOpacity={0.8}
         >
           <View style={[styles.retentionBannerIcon, anyActiveRule && styles.retentionBannerIconActive]}>
@@ -216,21 +258,18 @@ export function DashboardScreen() {
           visible={true}
           token={cleaningAccount.token}
           userId={cleaningAccount.id.replace('discord_', '')}
-          onClose={() => setCleaningAccount(null)}
+          initialFilterDays={retentionCleanDays}
+          initialGhostMode={retentionGhostMode}
+          initialIgnorePinned={retentionIgnorePinned}
+          onClose={() => {
+            setCleaningAccount(null);
+            setRetentionCleanDays(undefined);
+          }}
           onFinished={(count) => {
             loadHistory();
           }}
         />
       )}
-
-      {/* Modale Auto-Clean & Rétention (FEAT-06) */}
-      <RetentionModal
-        visible={showRetentionModal}
-        onClose={() => setShowRetentionModal(false)}
-        onTriggerClean={(acc, days) => {
-          setCleaningAccount(acc);
-        }}
-      />
     </ScrollView>
   );
 }

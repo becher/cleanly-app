@@ -4,6 +4,9 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { theme } from '../constants/theme';
 import { RetentionModal } from '../components/RetentionModal';
+import { DiscordCleanModal } from '../components/DiscordCleanModal';
+import { useHistoryStore } from '../store/historyStore';
+import type { PlatformAccount } from '../types';
 
 const LANGUAGES = [
   { code: 'fr', label: 'Français', flag: '🇫🇷' },
@@ -15,7 +18,49 @@ const LANGUAGES = [
 
 export function SettingsScreen() {
   const [currentLang, setCurrentLang] = useState('fr');
-  const [showRetentionModal, setShowRetentionModal] = useState(false);
+  const [showRetentionView, setShowRetentionView] = useState(false);
+  const [cleaningAccount, setCleaningAccount] = useState<PlatformAccount | null>(null);
+  const [retentionCleanDays, setRetentionCleanDays] = useState<number | undefined>(undefined);
+  const [retentionGhostMode, setRetentionGhostMode] = useState<boolean | undefined>(undefined);
+  const [retentionIgnorePinned, setRetentionIgnorePinned] = useState<boolean | undefined>(undefined);
+  const loadHistory = useHistoryStore((s) => s.loadHistory);
+
+  if (showRetentionView) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.bg.base }}>
+        <RetentionModal
+          visible={true}
+          embedded={true}
+          onClose={() => setShowRetentionView(false)}
+          onTriggerClean={(acc, days, stealth, pinned) => {
+            setShowRetentionView(false);
+            setRetentionCleanDays(days);
+            setRetentionGhostMode(stealth);
+            setRetentionIgnorePinned(pinned);
+            setCleaningAccount(acc);
+          }}
+        />
+
+        {cleaningAccount?.platform === 'discord' && (
+          <DiscordCleanModal
+            visible={true}
+            token={cleaningAccount.token}
+            userId={cleaningAccount.id.replace('discord_', '')}
+            initialFilterDays={retentionCleanDays}
+            initialGhostMode={retentionGhostMode}
+            initialIgnorePinned={retentionIgnorePinned}
+            onClose={() => {
+              setCleaningAccount(null);
+              setRetentionCleanDays(undefined);
+            }}
+            onFinished={() => {
+              loadHistory();
+            }}
+          />
+        )}
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.page} showsVerticalScrollIndicator={false}>
@@ -63,7 +108,7 @@ export function SettingsScreen() {
         <View style={styles.card}>
           <TouchableOpacity
             style={styles.actionRow}
-            onPress={() => setShowRetentionModal(true)}
+            onPress={() => setShowRetentionView(true)}
             activeOpacity={0.7}
           >
             <Ionicons name="timer-outline" size={22} color="#5865F2" />
@@ -91,11 +136,6 @@ export function SettingsScreen() {
       </View>
 
       <View style={{ height: 32 }} />
-
-      <RetentionModal
-        visible={showRetentionModal}
-        onClose={() => setShowRetentionModal(false)}
-      />
     </ScrollView>
   );
 }

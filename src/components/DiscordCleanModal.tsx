@@ -48,6 +48,9 @@ type Props = {
   userId: string;
   onClose: () => void;
   onFinished?: (deletedCount: number) => void;
+  initialFilterDays?: number;
+  initialGhostMode?: boolean;
+  initialIgnorePinned?: boolean;
 };
 
 type Step =
@@ -138,7 +141,16 @@ const SPEED_OPTIONS = [
   },
 ];
 
-export function DiscordCleanModal({ visible, token, userId, onClose, onFinished }: Props) {
+export function DiscordCleanModal({
+  visible,
+  token,
+  userId,
+  onClose,
+  onFinished,
+  initialFilterDays,
+  initialGhostMode,
+  initialIgnorePinned,
+}: Props) {
   const [step, setStep] = useState<Step>('select_guild');
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('Chargement en cours...');
@@ -156,12 +168,12 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
 
   // Filtres avancés
   const [filterKeyword, setFilterKeyword] = useState('');
-  const [filterDays, setFilterDays] = useState<number>(0); // 0 = tous
+  const [filterDays, setFilterDays] = useState<number>(initialFilterDays ?? 0); // 0 = tous
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
   const [onlyWithAttachments, setOnlyWithAttachments] = useState(false);
   const [onlyWithLinks, setOnlyWithLinks] = useState(false);
-  const [ignorePinned, setIgnorePinned] = useState(true);
-  const [isGhostModeEnabled, setIsGhostModeEnabled] = useState(false); // Mode Furtif (Ghosting Anti-Logs)
+  const [ignorePinned, setIgnorePinned] = useState(initialIgnorePinned ?? true);
+  const [isGhostModeEnabled, setIsGhostModeEnabled] = useState(initialGhostMode ?? false); // Mode Furtif (Ghosting Anti-Logs)
   const [speedDelayMs, setSpeedDelayMs] = useState<number>(500); // 500ms normal
   const [isSpeedDropdownOpen, setIsSpeedDropdownOpen] = useState(false);
 

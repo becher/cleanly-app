@@ -21,7 +21,13 @@ import type { PlatformAccount, RetentionRule } from '../types';
 interface RetentionModalProps {
   visible: boolean;
   onClose: () => void;
-  onTriggerClean?: (account: PlatformAccount, days: number) => void;
+  onTriggerClean?: (
+    account: PlatformAccount,
+    days: number,
+    stealthMode?: boolean,
+    ignorePinned?: boolean
+  ) => void;
+  embedded?: boolean;
 }
 
 const RETENTION_PERIODS = [
@@ -39,7 +45,7 @@ const FREQUENCIES: { id: 'daily' | 'weekly' | 'monthly'; label: string; icon: st
   { id: 'monthly', label: 'Mensuel', icon: 'time-outline' },
 ];
 
-export function RetentionModal({ visible, onClose, onTriggerClean }: RetentionModalProps) {
+export function RetentionModal({ visible, onClose, onTriggerClean, embedded = false }: RetentionModalProps) {
   const accounts = useAuthStore((s) => s.accounts);
   const rules = useRetentionStore((s) => s.rules);
   const saveRule = useRetentionStore((s) => s.saveRule);
@@ -48,13 +54,13 @@ export function RetentionModal({ visible, onClose, onTriggerClean }: RetentionMo
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
 
   useEffect(() => {
-    if (visible) {
+    if (visible || embedded) {
       loadRules();
       if (accounts.length > 0 && !selectedAccountId) {
         setSelectedAccountId(accounts[0].id);
       }
     }
-  }, [visible, accounts, loadRules, selectedAccountId]);
+  }, [visible, embedded, accounts, loadRules, selectedAccountId]);
 
   const currentAccount = accounts.find((a) => a.id === selectedAccountId) ?? accounts[0];
 
@@ -88,256 +94,275 @@ export function RetentionModal({ visible, onClose, onTriggerClean }: RetentionMo
   };
 
   const handleImmediateClean = () => {
-    if (!currentAccount) return;
-    onClose();
+    if (!currentAccount) {
+      Alert.alert('Compte requis', 'Veuillez connecter un compte dans l’onglet Réseaux.');
+      return;
+    }
     if (onTriggerClean) {
-      onTriggerClean(currentAccount, activeRule.retentionDays);
+      onTriggerClean(
+        currentAccount,
+        activeRule.retentionDays,
+        activeRule.stealthMode,
+        activeRule.ignorePinned
+      );
     }
   };
 
-  return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={styles.container}>
-        {/* En-tête */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Ionicons name="close" size={24} color={theme.text.primary} />
-          </TouchableOpacity>
-          <View style={{ flex: 1, alignItems: 'center', marginHorizontal: 8 }}>
-            <Text style={styles.headerTitle}>Auto-Clean & Rétention</Text>
-            <Text style={styles.headerSubtitle}>Hygiène numérique automatique</Text>
-          </View>
-          <View style={{ width: 40 }} />
+  const contentJSX = (
+    <SafeAreaView style={styles.container}>
+      {/* En-tête */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={onClose}
+          style={styles.backBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name={embedded ? 'arrow-back' : 'close'} size={24} color={theme.text.primary} />
+        </TouchableOpacity>
+        <View style={{ flex: 1, alignItems: 'center', marginHorizontal: 8 }}>
+          <Text style={styles.headerTitle}>Auto-Clean & Rétention</Text>
+          <Text style={styles.headerSubtitle}>Hygiène numérique automatique</Text>
         </View>
+        <View style={{ width: 40 }} />
+      </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Sélecteur de compte si plusieurs */}
-          {accounts.length > 1 && (
-            <View style={styles.accountTabs}>
-              {accounts.map((acc) => {
-                const isSel = acc.id === currentAccount?.id;
-                const pColor = PLATFORM_COLORS[acc.platform] ?? theme.accent.primary;
-                return (
-                  <TouchableOpacity
-                    key={acc.id}
-                    style={[styles.accountTab, isSel && { borderColor: pColor, backgroundColor: `${pColor}0D` }]}
-                    onPress={() => setSelectedAccountId(acc.id)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.accountTabText, isSel && { color: pColor, fontWeight: '700' }]}>
-                      {acc.displayName || acc.username}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Sélecteur de compte si plusieurs */}
+        {accounts.length > 1 && (
+          <View style={styles.accountTabs}>
+            {accounts.map((acc) => {
+              const isSel = acc.id === currentAccount?.id;
+              const pColor = PLATFORM_COLORS[acc.platform] ?? theme.accent.primary;
+              return (
+                <TouchableOpacity
+                  key={acc.id}
+                  style={[styles.accountTab, isSel && { borderColor: pColor, backgroundColor: `${pColor}0D` }]}
+                  onPress={() => setSelectedAccountId(acc.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.accountTabText, isSel && { color: pColor, fontWeight: '700' }]}>
+                    {acc.displayName || acc.username}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Bannière principale Switch ON/OFF */}
+        <View style={[styles.mainCard, activeRule.enabled && styles.mainCardActive]}>
+          <View style={styles.mainCardHeader}>
+            <View style={[styles.iconCircle, activeRule.enabled && styles.iconCircleActive]}>
+              <Ionicons
+                name={activeRule.enabled ? 'shield-checkmark' : 'shield-outline'}
+                size={24}
+                color={activeRule.enabled ? '#10B981' : theme.text.muted}
+              />
+            </View>
+            <View style={{ flex: 1, marginHorizontal: 12 }}>
+              <Text style={styles.mainCardTitle}>Règle de rétention active</Text>
+              <Text style={styles.mainCardDesc}>
+                {activeRule.enabled
+                  ? retentionService.formatRuleSummary(activeRule)
+                  : 'Désactivé • Vos anciens messages restent indéfiniment'}
+              </Text>
+            </View>
+            <Switch
+              value={activeRule.enabled}
+              onValueChange={(val) => handleUpdate({ enabled: val })}
+              trackColor={{ true: '#10B981', false: theme.bg.raised }}
+            />
+          </View>
+
+          {activeRule.enabled && (
+            <View style={styles.scheduleBadge}>
+              <Ionicons name="time-outline" size={14} color="#10B981" style={{ marginRight: 6 }} />
+              <Text style={styles.scheduleBadgeText}>
+                Prochaine vérification : {retentionService.formatNextRun(activeRule)}
+              </Text>
             </View>
           )}
+        </View>
 
-          {/* Bannière principale Switch ON/OFF */}
-          <View style={[styles.mainCard, activeRule.enabled && styles.mainCardActive]}>
-            <View style={styles.mainCardHeader}>
-              <View style={[styles.iconCircle, activeRule.enabled && styles.iconCircleActive]}>
-                <Ionicons
-                  name={activeRule.enabled ? 'shield-checkmark' : 'shield-outline'}
-                  size={24}
-                  color={activeRule.enabled ? '#10B981' : theme.text.muted}
-                />
+        {/* 1. Durée maximale de conservation */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>1. Délai de rétention maximal</Text>
+          <Text style={styles.sectionSubtitle}>
+            Tout message plus ancien que cette période sera ciblé pour suppression.
+          </Text>
+
+          <View style={styles.gridPeriods}>
+            {RETENTION_PERIODS.map((p) => {
+              const isSelected = activeRule.retentionDays === p.days;
+              return (
+                <TouchableOpacity
+                  key={p.days}
+                  style={[styles.periodCard, isSelected && styles.periodCardSelected]}
+                  onPress={() => handleUpdate({ retentionDays: p.days })}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.periodLabel, isSelected && styles.periodLabelSelected]}>
+                    {p.label}
+                  </Text>
+                  <Text style={[styles.periodSub, isSelected && styles.periodSubSelected]}>
+                    {p.sub}
+                  </Text>
+                  {isSelected && (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={16}
+                      color="#5865F2"
+                      style={styles.periodCheckIcon}
+                    />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* 2. Fréquence d'exécution */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>2. Fréquence de passage</Text>
+          <View style={styles.frequencyRow}>
+            {FREQUENCIES.map((f) => {
+              const isSelected = activeRule.frequency === f.id;
+              return (
+                <TouchableOpacity
+                  key={f.id}
+                  style={[styles.frequencyBtn, isSelected && styles.frequencyBtnSelected]}
+                  onPress={() => handleUpdate({ frequency: f.id })}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={f.icon}
+                    size={16}
+                    color={isSelected ? '#5865F2' : theme.text.muted}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={[styles.frequencyBtnText, isSelected && styles.frequencyBtnTextSelected]}>
+                    {f.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* 3. Mode d'exécution */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>3. Mode de purge</Text>
+          <View style={styles.cardBox}>
+            <TouchableOpacity
+              style={[
+                styles.modeRow,
+                activeRule.executionMode === 'notify_confirm' && styles.modeRowActive,
+              ]}
+              onPress={() => handleUpdate({ executionMode: 'notify_confirm' })}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={activeRule.executionMode === 'notify_confirm' ? 'radio-button-on' : 'radio-button-off'}
+                size={18}
+                color="#5865F2"
+                style={{ marginRight: 10 }}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modeTitle}>Alerte intelligente avec confirmation</Text>
+                <Text style={styles.modeSub}>
+                  Cleanly vous notifie des messages expirés et vous demande confirmation en 1 clic.
+                </Text>
               </View>
-              <View style={{ flex: 1, marginHorizontal: 12 }}>
-                <Text style={styles.mainCardTitle}>Règle de rétention active</Text>
-                <Text style={styles.mainCardDesc}>
-                  {activeRule.enabled
-                    ? retentionService.formatRuleSummary(activeRule)
-                    : 'Désactivé • Vos anciens messages restent indéfiniment'}
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            <TouchableOpacity
+              style={[
+                styles.modeRow,
+                activeRule.executionMode === 'auto_background' && styles.modeRowActive,
+              ]}
+              onPress={() => handleUpdate({ executionMode: 'auto_background' })}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={activeRule.executionMode === 'auto_background' ? 'radio-button-on' : 'radio-button-off'}
+                size={18}
+                color="#5865F2"
+                style={{ marginRight: 10 }}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modeTitle}>Purge automatique silencieuse</Text>
+                <Text style={styles.modeSub}>
+                  Supprime automatiquement les messages expirés en arrière-plan avec rapport de fin.
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 4. Protections & Sécurité */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>4. Protections avancées</Text>
+          <View style={styles.cardBox}>
+            <View style={styles.switchOptionRow}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={styles.switchOptionTitle}>👻 Mode Furtif (Anti-Logs)</Text>
+                <Text style={styles.switchOptionSub}>
+                  Brouille le contenu avant suppression pour éviter les captures de bots de salon.
                 </Text>
               </View>
               <Switch
-                value={activeRule.enabled}
-                onValueChange={(val) => handleUpdate({ enabled: val })}
-                trackColor={{ true: '#10B981', false: theme.bg.raised }}
+                value={activeRule.stealthMode}
+                onValueChange={(val) => handleUpdate({ stealthMode: val })}
+                trackColor={{ true: '#5865F2', false: theme.bg.raised }}
               />
             </View>
 
-            {activeRule.enabled && (
-              <View style={styles.scheduleBadge}>
-                <Ionicons name="time-outline" size={14} color="#10B981" style={{ marginRight: 6 }} />
-                <Text style={styles.scheduleBadgeText}>
-                  Prochaine vérification : {retentionService.formatNextRun(activeRule)}
+            <View style={styles.divider} />
+
+            <View style={styles.switchOptionRow}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={styles.switchOptionTitle}>📌 Conserver les messages épinglés</Text>
+                <Text style={styles.switchOptionSub}>
+                  Ne jamais purger les messages importants ou annonces épinglés.
                 </Text>
               </View>
-            )}
+              <Switch
+                value={activeRule.ignorePinned}
+                onValueChange={(val) => handleUpdate({ ignorePinned: val })}
+                trackColor={{ true: '#5865F2', false: theme.bg.raised }}
+              />
+            </View>
           </View>
+        </View>
 
-          {/* 1. Durée maximale de conservation */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>1. Délai de rétention maximal</Text>
-            <Text style={styles.sectionSubtitle}>
-              Tout message plus ancien que cette période sera ciblé pour suppression.
+        {/* Bouton d'action directe immédiate */}
+        <View style={styles.bottomSection}>
+          <TouchableOpacity
+            style={styles.actionCleanNowBtn}
+            onPress={handleImmediateClean}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="flash" size={18} color="#FFF" style={{ marginRight: 8 }} />
+            <Text style={styles.actionCleanNowText}>
+              Purger les messages &gt; {activeRule.retentionDays} jours maintenant
             </Text>
+          </TouchableOpacity>
+        </View>
 
-            <View style={styles.gridPeriods}>
-              {RETENTION_PERIODS.map((p) => {
-                const isSelected = activeRule.retentionDays === p.days;
-                return (
-                  <TouchableOpacity
-                    key={p.days}
-                    style={[styles.periodCard, isSelected && styles.periodCardSelected]}
-                    onPress={() => handleUpdate({ retentionDays: p.days })}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.periodLabel, isSelected && styles.periodLabelSelected]}>
-                      {p.label}
-                    </Text>
-                    <Text style={[styles.periodSub, isSelected && styles.periodSubSelected]}>
-                      {p.sub}
-                    </Text>
-                    {isSelected && (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={16}
-                        color="#5865F2"
-                        style={styles.periodCheckIcon}
-                      />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </SafeAreaView>
+  );
 
-          {/* 2. Fréquence d'exécution */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>2. Fréquence de passage</Text>
-            <View style={styles.frequencyRow}>
-              {FREQUENCIES.map((f) => {
-                const isSelected = activeRule.frequency === f.id;
-                return (
-                  <TouchableOpacity
-                    key={f.id}
-                    style={[styles.frequencyBtn, isSelected && styles.frequencyBtnSelected]}
-                    onPress={() => handleUpdate({ frequency: f.id })}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={f.icon}
-                      size={16}
-                      color={isSelected ? '#5865F2' : theme.text.muted}
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text style={[styles.frequencyBtnText, isSelected && styles.frequencyBtnTextSelected]}>
-                      {f.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
+  if (embedded) {
+    return contentJSX;
+  }
 
-          {/* 3. Mode d'exécution */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>3. Mode de purge</Text>
-            <View style={styles.cardBox}>
-              <TouchableOpacity
-                style={[
-                  styles.modeRow,
-                  activeRule.executionMode === 'notify_confirm' && styles.modeRowActive,
-                ]}
-                onPress={() => handleUpdate({ executionMode: 'notify_confirm' })}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={activeRule.executionMode === 'notify_confirm' ? 'radio-button-on' : 'radio-button-off'}
-                  size={18}
-                  color="#5865F2"
-                  style={{ marginRight: 10 }}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.modeTitle}>Alerte intelligente avec confirmation</Text>
-                  <Text style={styles.modeSub}>
-                    Cleanly vous notifie des messages expirés et vous demande confirmation en 1 clic.
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              <View style={styles.divider} />
-
-              <TouchableOpacity
-                style={[
-                  styles.modeRow,
-                  activeRule.executionMode === 'auto_background' && styles.modeRowActive,
-                ]}
-                onPress={() => handleUpdate({ executionMode: 'auto_background' })}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={activeRule.executionMode === 'auto_background' ? 'radio-button-on' : 'radio-button-off'}
-                  size={18}
-                  color="#5865F2"
-                  style={{ marginRight: 10 }}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.modeTitle}>Purge automatique silencieuse</Text>
-                  <Text style={styles.modeSub}>
-                    Supprime automatiquement les messages expirés en arrière-plan avec rapport de fin.
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* 4. Protections & Sécurité */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>4. Protections avancées</Text>
-            <View style={styles.cardBox}>
-              <View style={styles.switchOptionRow}>
-                <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={styles.switchOptionTitle}>👻 Mode Furtif (Anti-Logs)</Text>
-                  <Text style={styles.switchOptionSub}>
-                    Brouille le contenu avant suppression pour éviter les captures de bots de salon.
-                  </Text>
-                </View>
-                <Switch
-                  value={activeRule.stealthMode}
-                  onValueChange={(val) => handleUpdate({ stealthMode: val })}
-                  trackColor={{ true: '#5865F2', false: theme.bg.raised }}
-                />
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.switchOptionRow}>
-                <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={styles.switchOptionTitle}>📌 Conserver les messages épinglés</Text>
-                  <Text style={styles.switchOptionSub}>
-                    Ne jamais purger les messages importants ou annonces épinglés.
-                  </Text>
-                </View>
-                <Switch
-                  value={activeRule.ignorePinned}
-                  onValueChange={(val) => handleUpdate({ ignorePinned: val })}
-                  trackColor={{ true: '#5865F2', false: theme.bg.raised }}
-                />
-              </View>
-            </View>
-          </View>
-
-          {/* Bouton d'action directe immédiate */}
-          <View style={styles.bottomSection}>
-            <TouchableOpacity
-              style={styles.actionCleanNowBtn}
-              onPress={handleImmediateClean}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="flash" size={18} color="#FFF" style={{ marginRight: 8 }} />
-              <Text style={styles.actionCleanNowText}>
-                Purger les messages &gt; {activeRule.retentionDays} jours maintenant
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ height: 40 }} />
-        </ScrollView>
-      </SafeAreaView>
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      {contentJSX}
     </Modal>
   );
 }
