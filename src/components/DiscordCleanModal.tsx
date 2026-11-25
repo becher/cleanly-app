@@ -1471,26 +1471,6 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                         trackColor={{ true: '#5865F2', false: theme.bg.raised }}
                       />
                     </View>
-
-                    <View style={[styles.switchRow, { borderTopWidth: 1, borderTopColor: theme.border.subtle, paddingTop: 10 }]}>
-                      <View style={{ flex: 1, marginRight: 10 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Text style={styles.switchTitle}>Mode Furtif (Ghosting Anti-Logs)</Text>
-                          <View style={styles.antiLogsBadge}>
-                            <Text style={styles.antiLogsBadgeText}>ANTI-LOGS</Text>
-                          </View>
-                        </View>
-                        <Text style={styles.switchSub}>
-                          Anonymise le contenu avant suppression définitive pour déjouer les outils de surveillance et salons de logs
-                        </Text>
-                      </View>
-                      <Switch
-                        value={isGhostModeEnabled}
-                        onValueChange={setIsGhostModeEnabled}
-                        trackColor={{ true: '#8B5CF6', false: theme.bg.raised }}
-                        thumbColor={isGhostModeEnabled ? '#FFF' : '#A0AEC0'}
-                      />
-                    </View>
                   </View>
 
                   <View style={{ height: 40 }} />
@@ -1554,8 +1534,8 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                     )}
                   </View>
 
-                  {/* Barre de contrôle du tableau : Tout Cocher / Décocher synchronisé */}
-                  <View style={styles.tableHeaderRow}>
+                  {/* Barre de contrôle unifiée : Tout Cocher + Options rapides (Backup & Furtif) */}
+                  <View style={styles.tableUnifiedControlBar}>
                     <TouchableOpacity
                       style={styles.tableSelectAllBtn}
                       onPress={toggleAllMessages}
@@ -1569,13 +1549,13 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                               ? 'remove-circle'
                               : 'square-outline'
                         }
-                        size={22}
+                        size={21}
                         color={
                           isAllFilteredMessagesSelected || isSomeFilteredMessagesSelected
                             ? theme.accent.red
                             : theme.text.muted
                         }
-                        style={{ marginRight: 8 }}
+                        style={{ marginRight: 6 }}
                       />
                       <Text
                         style={[
@@ -1585,92 +1565,69 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                             fontWeight: '700',
                           },
                         ]}
+                        numberOfLines={1}
                       >
                         {isAllFilteredMessagesSelected
                           ? isMessageFilterActive
-                            ? `Tous les ${filteredScannedMessages.length} filtrés cochés`
-                            : 'Tous les messages cochés'
+                            ? `Tous cochés (${filteredScannedMessages.length})`
+                            : 'Tous cochés'
                           : isSomeFilteredMessagesSelected
-                            ? `Sélection partielle (${selectedFilteredCount}/${filteredScannedMessages.length})`
+                            ? `${selectedFilteredCount}/${filteredScannedMessages.length}`
                             : isMessageFilterActive
-                              ? `Cocher les ${filteredScannedMessages.length} filtrés`
+                              ? `Cocher filtrés (${filteredScannedMessages.length})`
                               : 'Tout cocher'}
                       </Text>
                     </TouchableOpacity>
 
-                    {/* Action rapide : isoler la sélection aux seuls messages filtrés */}
-                    {isMessageFilterActive && selectedMessageIds.size > selectedFilteredCount ? (
-                      <TouchableOpacity
-                        onPress={selectOnlyFilteredMessages}
-                        style={styles.isolateFilterBtn}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="funnel" size={11} color="#5865F2" style={{ marginRight: 4 }} />
-                        <Text style={styles.isolateFilterBtnText}>
-                          Garder uniquement ces {filteredScannedMessages.length}
-                        </Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <Text style={styles.previewShowingCountText}>
-                        {formatCount(filteredScannedMessages.length, 'affiché', 'affichés')}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Options de Sauvegarde (Radiobox) */}
-                  <View style={styles.backupRadioGroup}>
-                    <Text style={styles.backupRadioGroupLabel}>SAUVEGARDE DE SÉCURITÉ (BACKUP) :</Text>
-                    <View style={styles.backupRadioRow}>
+                    {/* Options rapides intégrées sur la même ligne : Backup & Mode Furtif */}
+                    <View style={styles.quickOptionsGroup}>
+                      {/* Pill Backup */}
                       <TouchableOpacity
                         style={[
-                          styles.backupRadioItem,
-                          isBackupEnabled && styles.backupRadioItemActive,
+                          styles.quickPill,
+                          isBackupEnabled ? styles.quickPillBackupActive : styles.quickPillInactive,
                         ]}
-                        onPress={() => setIsBackupEnabled(true)}
-                        activeOpacity={0.8}
+                        onPress={() => setIsBackupEnabled(!isBackupEnabled)}
+                        activeOpacity={0.75}
                       >
                         <Ionicons
-                          name={isBackupEnabled ? 'radio-button-on' : 'radio-button-off'}
-                          size={18}
+                          name={isBackupEnabled ? 'shield-checkmark' : 'shield-outline'}
+                          size={13}
                           color={isBackupEnabled ? '#10B981' : theme.text.muted}
-                          style={{ marginRight: 6 }}
+                          style={{ marginRight: 4 }}
                         />
                         <Text
                           style={[
-                            styles.backupRadioItemText,
-                            isBackupEnabled && styles.backupRadioItemTextActive,
+                            styles.quickPillText,
+                            isBackupEnabled && styles.quickPillTextBackupActive,
                           ]}
                         >
-                          Sauvegarder l’archive
+                          Backup {isBackupEnabled ? '✓' : 'off'}
                         </Text>
-                        {isBackupEnabled && (
-                          <View style={styles.backupRadioMiniBadge}>
-                            <Ionicons name="shield-checkmark" size={12} color="#10B981" />
-                          </View>
-                        )}
                       </TouchableOpacity>
 
+                      {/* Pill Mode Furtif */}
                       <TouchableOpacity
                         style={[
-                          styles.backupRadioItem,
-                          !isBackupEnabled && styles.backupRadioItemActiveDanger,
+                          styles.quickPill,
+                          isGhostModeEnabled ? styles.quickPillGhostActive : styles.quickPillInactive,
                         ]}
-                        onPress={() => setIsBackupEnabled(false)}
-                        activeOpacity={0.8}
+                        onPress={() => setIsGhostModeEnabled(!isGhostModeEnabled)}
+                        activeOpacity={0.75}
                       >
                         <Ionicons
-                          name={!isBackupEnabled ? 'radio-button-on' : 'radio-button-off'}
-                          size={18}
-                          color={!isBackupEnabled ? theme.accent.red : theme.text.muted}
-                          style={{ marginRight: 6 }}
+                          name={isGhostModeEnabled ? 'eye-off' : 'eye-off-outline'}
+                          size={13}
+                          color={isGhostModeEnabled ? '#8B5CF6' : theme.text.muted}
+                          style={{ marginRight: 4 }}
                         />
                         <Text
                           style={[
-                            styles.backupRadioItemText,
-                            !isBackupEnabled && styles.backupRadioItemTextDanger,
+                            styles.quickPillText,
+                            isGhostModeEnabled && styles.quickPillTextGhostActive,
                           ]}
                         >
-                          Sans sauvegarde
+                          Furtif {isGhostModeEnabled ? '✓' : 'off'}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -1735,71 +1692,8 @@ export function DiscordCleanModal({ visible, token, userId, onClose, onFinished 
                   <View style={{ height: 80 }} />
                 </ScrollView>
 
-                {/* Footer suppression avec choix de la méthode anti-ban & Mode Furtif */}
+                {/* Footer suppression avec choix de la méthode anti-ban */}
                 <View style={styles.previewBottomBar}>
-                  {/* Mode Furtif / Ghosting Anti-logs */}
-                  <TouchableOpacity
-                    style={[
-                      styles.ghostModeBar,
-                      isGhostModeEnabled && styles.ghostModeBarActive,
-                    ]}
-                    onPress={() => setIsGhostModeEnabled(!isGhostModeEnabled)}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.ghostModeBarLeft}>
-                      <View
-                        style={[
-                          styles.ghostModeIconCircle,
-                          {
-                            backgroundColor: isGhostModeEnabled ? '#8B5CF620' : theme.bg.raised,
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name={isGhostModeEnabled ? 'eye-off' : 'eye-off-outline'}
-                          size={15}
-                          color={isGhostModeEnabled ? '#8B5CF6' : theme.text.muted}
-                        />
-                      </View>
-                      <View style={{ flex: 1, marginLeft: 8 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Text
-                            style={[
-                              styles.ghostModeBarTitle,
-                              isGhostModeEnabled && { color: '#8B5CF6', fontWeight: '700' },
-                            ]}
-                          >
-                            Mode Furtif (Anti-Logs)
-                          </Text>
-                          <View
-                            style={[
-                              styles.ghostModeMiniBadge,
-                              isGhostModeEnabled && styles.ghostModeMiniBadgeActive,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.ghostModeMiniBadgeText,
-                                isGhostModeEnabled && styles.ghostModeMiniBadgeTextActive,
-                              ]}
-                            >
-                              {isGhostModeEnabled ? 'ACTIF' : 'OPTION'}
-                            </Text>
-                          </View>
-                        </View>
-                        <Text style={styles.ghostModeBarSub} numberOfLines={1}>
-                          Anonymise le message avant suppression (anti-surveillance & logs)
-                        </Text>
-                      </View>
-                    </View>
-                    <Switch
-                      value={isGhostModeEnabled}
-                      onValueChange={setIsGhostModeEnabled}
-                      trackColor={{ true: '#8B5CF6', false: theme.bg.raised }}
-                      thumbColor={isGhostModeEnabled ? '#FFF' : '#A0AEC0'}
-                    />
-                  </TouchableOpacity>
-
                   {/* Sélecteur de méthode de suppression */}
                   <View style={styles.speedSelectorBox}>
                     <View style={styles.speedSelectorHeader}>
@@ -3532,6 +3426,57 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: theme.text.secondary,
     marginTop: 1,
+  },
+  tableUnifiedControlBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 5,
+    paddingHorizontal: 2,
+    borderTopWidth: 1,
+    borderTopColor: theme.border.subtle,
+    marginTop: 4,
+  },
+  quickOptionsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  quickPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+    backgroundColor: '#FFF',
+  },
+  quickPillBackupActive: {
+    backgroundColor: '#10B98115',
+    borderColor: '#10B98160',
+  },
+  quickPillGhostActive: {
+    backgroundColor: '#8B5CF618',
+    borderColor: '#8B5CF660',
+  },
+  quickPillInactive: {
+    backgroundColor: theme.bg.raised,
+    borderColor: 'transparent',
+    opacity: 0.65,
+  },
+  quickPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.text.muted,
+  },
+  quickPillTextBackupActive: {
+    color: '#10B981',
+    fontWeight: '700',
+  },
+  quickPillTextGhostActive: {
+    color: '#8B5CF6',
+    fontWeight: '700',
   },
   ghostModeDeletingBadge: {
     flexDirection: 'row',
