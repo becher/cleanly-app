@@ -344,11 +344,12 @@ class CleanNotificationService {
     try {
       await this.initNotificationChannels();
       const config = getPlatformConfig(platform);
+      const daysText = retentionDays === 0 ? '1 minute' : `${retentionDays} jours`;
 
       await notifee.displayNotification({
         id: `retention_${platform}`,
-        title: `🛡️ Cleanly Auto-Clean : ${expiredCount} message${expiredCount > 1 ? 's' : ''} à purger`,
-        body: `${accountName} dépasse votre politique de ${retentionDays} jours de rétention. Touchez pour nettoyer.`,
+        title: `🛡️ Cleanly Auto-Clean : Purge planifiée prête !`,
+        body: `${accountName} dépasse votre règle de rétention (${daysText}). Touchez pour nettoyer.`,
         android: {
           channelId: 'cleanly_retention',
           color: config.brandColor,
@@ -359,6 +360,43 @@ class CleanNotificationService {
       });
     } catch (e) {
       console.warn('[CleanNotificationService] Erreur notifyRetentionAlert:', e);
+    }
+  }
+
+  /**
+   * Notification immédiate après la sauvegarde pour confirmer que la tâche est activée & armée
+   */
+  async notifyRetentionScheduled({
+    platform,
+    accountName,
+    retentionDays,
+    frequency,
+  }: {
+    platform: CleanPlatformType;
+    accountName: string;
+    retentionDays: number;
+    frequency: string;
+  }): Promise<void> {
+    try {
+      await this.initNotificationChannels();
+      const config = getPlatformConfig(platform);
+      const daysText = retentionDays === 0 ? '1 minute' : `${retentionDays} jours`;
+      const freqText = frequency === '1min' ? 'dans 1 minute (test)' : frequency === 'daily' ? 'chaque jour' : frequency === 'weekly' ? 'chaque semaine' : 'chaque mois';
+
+      await notifee.displayNotification({
+        id: `retention_scheduled_${platform}`,
+        title: `🛡️ Auto-Clean ${config.displayName} activé !`,
+        body: `Règle de rétention armée pour ${accountName} (> ${daysText}). Prochain passage : ${freqText}.`,
+        android: {
+          channelId: 'cleanly_retention',
+          color: config.brandColor,
+          pressAction: {
+            id: 'default',
+          },
+        },
+      });
+    } catch (e) {
+      console.warn('[CleanNotificationService] Erreur notifyRetentionScheduled:', e);
     }
   }
 }

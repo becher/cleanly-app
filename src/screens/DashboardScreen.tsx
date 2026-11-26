@@ -41,6 +41,7 @@ export function DashboardScreen() {
 
   const [cleaningAccount, setCleaningAccount] = useState<PlatformAccount | null>(null);
   const [showRetentionView, setShowRetentionView] = useState(false);
+  const [selectedRetentionAccountId, setSelectedRetentionAccountId] = useState<string | undefined>(undefined);
   const [retentionCleanDays, setRetentionCleanDays] = useState<number | undefined>(undefined);
   const [retentionGhostMode, setRetentionGhostMode] = useState<boolean | undefined>(undefined);
   const [retentionIgnorePinned, setRetentionIgnorePinned] = useState<boolean | undefined>(undefined);
@@ -72,9 +73,14 @@ export function DashboardScreen() {
         <RetentionModal
           visible={true}
           embedded={true}
-          onClose={() => setShowRetentionView(false)}
+          initialAccountId={selectedRetentionAccountId}
+          onClose={() => {
+            setShowRetentionView(false);
+            setSelectedRetentionAccountId(undefined);
+          }}
           onTriggerClean={(acc, days, stealth, pinned) => {
             setShowRetentionView(false);
+            setSelectedRetentionAccountId(undefined);
             setRetentionCleanDays(days);
             setRetentionGhostMode(stealth);
             setRetentionIgnorePinned(pinned);
@@ -105,41 +111,8 @@ export function DashboardScreen() {
             />
           </View>
 
-      {/* Bannière Rétention & Auto-Clean (FEAT-06) */}
-      {accounts.length > 0 && (
-        <TouchableOpacity
-          style={[styles.retentionBanner, anyActiveRule && styles.retentionBannerActive]}
-          onPress={() => setShowRetentionView(true)}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.retentionBannerIcon, anyActiveRule && styles.retentionBannerIconActive]}>
-            <Ionicons
-              name={anyActiveRule ? 'shield-checkmark' : 'timer-outline'}
-              size={20}
-              color={anyActiveRule ? '#10B981' : '#5865F2'}
-            />
-          </View>
-          <View style={{ flex: 1, marginHorizontal: 10 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={styles.retentionBannerTitle}>Auto-Clean & Rétention</Text>
-              {anyActiveRule && (
-                <View style={styles.activePill}>
-                  <Text style={styles.activePillText}>Actif</Text>
-                </View>
-              )}
-            </View>
-            <Text style={styles.retentionBannerSub} numberOfLines={1}>
-              {anyActiveRule
-                ? `${retentionService.formatRuleSummary(anyActiveRule)} • ${retentionService.formatNextRun(anyActiveRule)}`
-                : 'Automatisez la purge périodique de vos anciens messages'}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={theme.text.muted} />
-        </TouchableOpacity>
-      )}
-
-      {/* Progressions actives */}
-      {activeTasks.length > 0 && (
+          {/* Progressions actives */}
+          {activeTasks.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>En cours</Text>
           {activeTasks.map((task) => (
@@ -180,6 +153,11 @@ export function DashboardScreen() {
               name={account.displayName ?? account.platform}
               color={PLATFORM_COLORS[account.platform] ?? theme.accent.primary}
               isConnected
+              retentionRule={retentionRules.find((r) => r.accountId === account.id)}
+              onConfigureRetention={() => {
+                setSelectedRetentionAccountId(account.id);
+                setShowRetentionView(true);
+              }}
               onConnect={() => {}}
               onClean={() => handleClean(account)}
             />

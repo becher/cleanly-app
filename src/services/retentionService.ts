@@ -50,6 +50,12 @@ export class RetentionService {
     const diffMs = rule.nextRunAt - Date.now();
     if (diffMs <= 0) return 'Prêt maintenant';
 
+    const diffSec = Math.ceil(diffMs / 1000);
+    if (diffSec < 60) return `Dans ~${diffSec}s`;
+
+    const diffMinutes = Math.ceil(diffMs / 60000);
+    if (diffMinutes < 60) return `Dans ~${diffMinutes} min`;
+
     const diffHours = Math.ceil(diffMs / (3600 * 1000));
     if (diffHours < 24) return `Dans ~${diffHours}h`;
 
@@ -62,6 +68,7 @@ export class RetentionService {
    */
   formatRuleSummary(rule: RetentionRule): string {
     const periodMap: Record<number, string> = {
+      0: '1 min (test)',
       7: '1 semaine',
       14: '2 semaines',
       30: '1 mois',
@@ -72,6 +79,7 @@ export class RetentionService {
     const periodStr = periodMap[rule.retentionDays] ?? `${rule.retentionDays} jours`;
 
     const freqMap: Record<string, string> = {
+      '1min': 'dans 1 min (test)',
       daily: 'chaque jour',
       weekly: 'chaque semaine',
       monthly: 'chaque mois',

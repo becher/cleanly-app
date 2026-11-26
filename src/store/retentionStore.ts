@@ -120,6 +120,7 @@ export const useRetentionStore = create<RetentionState>((set, get) => ({
       if (r.id !== ruleId) return r;
       // Calcul du prochain run selon la fréquence
       let intervalMs = 24 * 3600 * 1000; // daily
+      if (r.frequency === '1min') intervalMs = 60 * 1000;
       if (r.frequency === 'weekly') intervalMs = 7 * 24 * 3600 * 1000;
       if (r.frequency === 'monthly') intervalMs = 30 * 24 * 3600 * 1000;
 

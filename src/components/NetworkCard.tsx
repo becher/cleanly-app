@@ -2,7 +2,10 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { theme } from '../constants/theme';
+import { retentionService } from '../services/retentionService';
+import type { RetentionRule } from '../types';
 
 type PlatformIconConfig =
   | { lib: 'fa5'; name: string }
@@ -27,10 +30,23 @@ type Props = {
   deletionCount?: number;
   onConnect: () => void;
   onClean?: () => void;
+  retentionRule?: RetentionRule;
+  onConfigureRetention?: () => void;
 };
 
-export function NetworkCard({ platformId, name, color, isConnected, deletionCount = 0, onConnect, onClean }: Props) {
+export function NetworkCard({
+  platformId,
+  name,
+  color,
+  isConnected,
+  deletionCount = 0,
+  onConnect,
+  onClean,
+  retentionRule,
+  onConfigureRetention,
+}: Props) {
   const iconConfig = PLATFORM_ICONS[platformId];
+  const isRetentionActive = retentionRule?.enabled;
 
   return (
     <View style={styles.card}>
@@ -60,6 +76,52 @@ export function NetworkCard({ platformId, name, color, isConnected, deletionCoun
         )}
       </View>
 
+      {/* Ligne Auto-Clean par plateforme si connectée */}
+      {isConnected && (
+        <TouchableOpacity
+          style={[
+            styles.retentionRow,
+            isRetentionActive ? styles.retentionRowActive : styles.retentionRowInactive,
+          ]}
+          onPress={onConfigureRetention}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name={isRetentionActive ? 'shield-checkmark' : 'shield-outline'}
+            size={16}
+            color={isRetentionActive ? '#10B981' : theme.text.muted}
+            style={{ marginRight: 8 }}
+          />
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text
+                style={[
+                  styles.retentionTitle,
+                  isRetentionActive && { color: '#10B981', fontWeight: '700' },
+                ]}
+              >
+                {isRetentionActive ? 'Auto-Clean actif' : 'Auto-Clean désactivé'}
+              </Text>
+              {isRetentionActive && (
+                <Text style={styles.retentionBadgeNext}>
+                  • {retentionService.formatNextRun(retentionRule)}
+                </Text>
+              )}
+            </View>
+            <Text style={styles.retentionSub} numberOfLines={1}>
+              {isRetentionActive
+                ? retentionService.formatRuleSummary(retentionRule)
+                : 'Touchez pour configurer la purge automatique'}
+            </Text>
+          </View>
+          <Ionicons
+            name="chevron-forward"
+            size={15}
+            color={isRetentionActive ? '#10B981' : theme.text.muted}
+          />
+        </TouchableOpacity>
+      )}
+
       {/* Action */}
       {isConnected ? (
         <TouchableOpacity
@@ -88,7 +150,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.lg,
     padding: theme.space.md,
     marginBottom: 10,
-    gap: 12,
+    gap: 10,
     // Ombre Facebook card
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -98,17 +160,53 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconBox: {
-    width: 48, height: 48, borderRadius: theme.radius.md,
-    alignItems: 'center', justifyContent: 'center',
+    width: 48,
+    height: 48,
+    borderRadius: theme.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   info: { flex: 1 },
   name: { color: theme.text.primary, fontSize: 15, fontWeight: '700' },
   status: { color: theme.text.muted, fontSize: 12, marginTop: 2 },
   badge: {
     borderRadius: theme.radius.full,
-    paddingHorizontal: 10, paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   badgeText: { fontSize: 12, fontWeight: '700' },
+  retentionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+  },
+  retentionRowActive: {
+    backgroundColor: '#10B9810A',
+    borderColor: '#10B98140',
+  },
+  retentionRowInactive: {
+    backgroundColor: theme.bg.raised,
+    borderColor: theme.border.subtle,
+  },
+  retentionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.text.primary,
+  },
+  retentionBadgeNext: {
+    fontSize: 11,
+    color: '#10B981',
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  retentionSub: {
+    fontSize: 10.5,
+    color: theme.text.muted,
+    marginTop: 1,
+  },
   cleanBtn: {
     borderRadius: theme.radius.full,
     paddingVertical: 10,

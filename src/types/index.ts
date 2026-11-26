@@ -87,8 +87,8 @@ export interface RetentionRule {
   accountId: string;
   accountName: string;
   enabled: boolean;
-  retentionDays: number; // 7, 14, 30, 90, 180, 365
-  frequency: 'daily' | 'weekly' | 'monthly';
+  retentionDays: number; // 0 = 1 minute (test), 1, 7, 14, 30, 90, 180, 365
+  frequency: '1min' | 'daily' | 'weekly' | 'monthly';
   lastRunAt?: number;
   nextRunAt: number;
   targetScope: 'all' | 'dms' | 'guilds';

@@ -1,4 +1,5 @@
-// Composant Modale de configuration des Règles d'Auto-Clean (Rétention) — FEAT-06 Cleanly
+// Composant de configuration Auto-Clean & Rétention — FEAT-06 Cleanly
+// Supporte les menus déroulants (dropdowns compacts), test rapide 1 min, notifications Notifee et réinitialisation
 import React, { useState, useEffect } from 'react';
 import {
   Modal,
@@ -16,6 +17,7 @@ import { theme, PLATFORM_COLORS } from '../constants/theme';
 import { useRetentionStore } from '../store/retentionStore';
 import { useAuthStore } from '../store/authStore';
 import { retentionService } from '../services/retentionService';
+import { cleanNotificationService } from '../services/cleanNotificationService';
 import type { PlatformAccount, RetentionRule } from '../types';
 
 interface RetentionModalProps {
@@ -28,36 +30,46 @@ interface RetentionModalProps {
     ignorePinned?: boolean
   ) => void;
   embedded?: boolean;
+  initialAccountId?: string;
 }
 
 const RETENTION_PERIODS = [
-  { days: 7, label: '7 jours', sub: 'Historique ultra-court' },
-  { days: 14, label: '14 jours', sub: '2 semaines de grâce' },
-  { days: 30, label: '30 jours', sub: '1 mois (Recommandé)' },
-  { days: 90, label: '90 jours', sub: '1 trimestre' },
-  { days: 180, label: '6 mois', sub: 'Semestriel' },
-  { days: 365, label: '1 an', sub: 'Annuel' },
+  { days: 0, label: '⚡ 1 minute (Test rapide)', desc: 'Purge les messages envoyés il y a plus de 60s', icon: 'flash' },
+  { days: 1, label: '24 heures', desc: 'Conserve uniquement les messages du jour', icon: 'today-outline' },
+  { days: 7, label: '7 jours (1 semaine)', desc: 'Historique court d’une semaine', icon: 'calendar-outline' },
+  { days: 14, label: '14 jours (2 semaines)', desc: '2 semaines de grâce', icon: 'calendar-outline' },
+  { days: 30, label: '30 jours (1 mois - Recommandé)', desc: 'Garde uniquement le dernier mois', icon: 'calendar-number-outline' },
+  { days: 90, label: '90 jours (3 mois)', desc: 'Historique trimestriel', icon: 'time-outline' },
+  { days: 180, label: '6 mois', desc: 'Historique semestriel', icon: 'time-outline' },
+  { days: 365, label: '1 an (365 jours)', desc: 'Conserve l’année en cours', icon: 'archive-outline' },
 ];
 
-const FREQUENCIES: { id: 'daily' | 'weekly' | 'monthly'; label: string; icon: string }[] = [
-  { id: 'daily', label: 'Quotidien', icon: 'today-outline' },
-  { id: 'weekly', label: 'Hebdo', icon: 'calendar-outline' },
-  { id: 'monthly', label: 'Mensuel', icon: 'time-outline' },
+const FREQUENCIES: { id: '1min' | 'daily' | 'weekly' | 'monthly'; label: string; desc: string; icon: string }[] = [
+  { id: '1min', label: '⚡ Dans 1 minute (Test immédiat)', desc: 'Déclenche l’alerte dans 60 secondes chrono !', icon: 'flash-outline' },
+  { id: 'daily', label: 'Quotidien (chaque jour)', desc: 'Vérification automatique chaque matin', icon: 'today-outline' },
+  { id: 'weekly', label: 'Hebdomadaire (Recommandé)', desc: 'Vérification une fois par semaine', icon: 'calendar-outline' },
+  { id: 'monthly', label: 'Mensuel', desc: 'Vérification une fois par mois', icon: 'time-outline' },
 ];
 
 const SCOPES: { id: 'all' | 'dms' | 'guilds'; title: string; desc: string; icon: string }[] = [
-  { id: 'all', title: 'Tout le compte (DMs + Serveurs)', desc: 'Nettoyage complet', icon: 'globe-outline' },
-  { id: 'dms', title: 'Messages Privés (DMs) seuls', desc: 'Ne touche pas aux serveurs', icon: 'chatbubbles-outline' },
-  { id: 'guilds', title: 'Serveurs uniquement', desc: 'Ne touche pas aux DMs', icon: 'server-outline' },
+  { id: 'all', title: 'Tout le compte (DMs + Serveurs)', desc: 'Nettoyage complet de l’historique', icon: 'globe-outline' },
+  { id: 'dms', title: 'Messages Privés (DMs) seuls', desc: 'Ne touche jamais aux serveurs', icon: 'chatbubbles-outline' },
+  { id: 'guilds', title: 'Serveurs uniquement', desc: 'Conserve vos conversations privées', icon: 'server-outline' },
 ];
 
-export function RetentionModal({ visible, onClose, onTriggerClean, embedded = false }: RetentionModalProps) {
+export function RetentionModal({ visible, onClose, onTriggerClean, embedded = false, initialAccountId }: RetentionModalProps) {
   const accounts = useAuthStore((s) => s.accounts);
   const rules = useRetentionStore((s) => s.rules);
   const saveRule = useRetentionStore((s) => s.saveRule);
+  const deleteRule = useRetentionStore((s) => s.deleteRule);
   const loadRules = useRetentionStore((s) => s.loadRules);
 
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [selectedAccountId, setSelectedAccountId] = useState<string>(initialAccountId || '');
+
+  // États pour les menus déroulants (Dropdowns style vitesse)
+  const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
+  const [isFrequencyDropdownOpen, setIsFrequencyDropdownOpen] = useState(false);
+  const [isScopeDropdownOpen, setIsScopeDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (accounts.length === 0) {
@@ -65,16 +77,19 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
     }
     if (visible || embedded) {
       loadRules();
-      if (accounts.length > 0 && !selectedAccountId) {
+      if (initialAccountId) {
+        setSelectedAccountId(initialAccountId);
+      } else if (accounts.length > 0 && !selectedAccountId) {
         setSelectedAccountId(accounts[0].id);
       }
     }
-  }, [visible, embedded, accounts, loadRules, selectedAccountId]);
+  }, [visible, embedded, accounts, loadRules, selectedAccountId, initialAccountId]);
 
   const currentAccount = accounts.find((a) => a.id === selectedAccountId) ?? accounts[0];
 
   // Règle actuelle ou valeurs par défaut
-  const activeRule: RetentionRule = rules.find((r) => r.accountId === currentAccount?.id) ?? {
+  const existingRule = rules.find((r) => r.accountId === currentAccount?.id);
+  const activeRule: RetentionRule = existingRule ?? {
     id: `rule_${currentAccount?.id ?? 'default'}`,
     platform: currentAccount?.platform ?? 'discord',
     accountId: currentAccount?.id ?? '',
@@ -106,31 +121,64 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
   const handleSaveAndSchedule = async () => {
     const targetAccount = currentAccount || accounts[0];
     if (!targetAccount) {
-      Alert.alert(
-        'Compte requis',
-        'Veuillez d’abord connecter un compte dans l’onglet Réseaux.'
-      );
+      Alert.alert('Compte requis', 'Veuillez d’abord connecter un compte dans l’onglet Réseaux.');
       return;
     }
 
-    const intervalDays = activeRule.frequency === 'daily' ? 1 : activeRule.frequency === 'weekly' ? 7 : 30;
+    const intervalMs =
+      activeRule.frequency === '1min'
+        ? 60 * 1000
+        : activeRule.frequency === 'daily'
+        ? 24 * 3600 * 1000
+        : activeRule.frequency === 'weekly'
+        ? 7 * 24 * 3600 * 1000
+        : 30 * 24 * 3600 * 1000;
+
     const updated: RetentionRule = {
       ...activeRule,
       enabled: true,
       accountId: targetAccount.id,
       platform: targetAccount.platform,
       accountName: targetAccount.displayName || targetAccount.username,
-      nextRunAt: Date.now() + intervalDays * 24 * 3600 * 1000,
+      nextRunAt: Date.now() + intervalMs,
     };
 
     await saveRule(updated);
 
-    const freqLabel = activeRule.frequency === 'daily' ? 'quotidiennement' : activeRule.frequency === 'weekly' ? 'chaque semaine' : 'chaque mois';
-    const scopeLabel = activeRule.targetScope === 'dms' ? 'vos Messages Privés (DMs)' : activeRule.targetScope === 'guilds' ? 'vos serveurs' : 'l’ensemble de votre compte';
+    // 1. Notification immédiate Notifee sur le téléphone
+    await cleanNotificationService.notifyRetentionScheduled({
+      platform: targetAccount.platform,
+      accountName: targetAccount.displayName || targetAccount.username,
+      retentionDays: activeRule.retentionDays,
+      frequency: activeRule.frequency,
+    });
+
+    // 2. Si le test 1 minute a été choisi, planifier le déclenchement dans 60s
+    if (activeRule.frequency === '1min') {
+      setTimeout(() => {
+        cleanNotificationService.notifyRetentionAlert({
+          platform: targetAccount.platform,
+          accountName: targetAccount.displayName || targetAccount.username,
+          expiredCount: 0,
+          retentionDays: activeRule.retentionDays,
+        });
+      }, 60000);
+    }
+
+    const freqLabel =
+      activeRule.frequency === '1min'
+        ? 'dans 1 minute (test rapide)'
+        : activeRule.frequency === 'daily'
+        ? 'chaque jour'
+        : activeRule.frequency === 'weekly'
+        ? 'chaque semaine'
+        : 'chaque mois';
+
+    const daysLabel = activeRule.retentionDays === 0 ? '1 minute (test)' : `${activeRule.retentionDays} jours`;
 
     Alert.alert(
-      '✅ Planification activée !',
-      `Votre règle de rétention est enregistrée pour ${targetAccount.displayName || targetAccount.username}.\n\n• Délai : Plus de ${activeRule.retentionDays} jours\n• Périmètre : ${scopeLabel}\n• Fréquence : Vérifié ${freqLabel}\n\nCleanly surveillera votre historique et vous avertira automatiquement.`,
+      '✅ Auto-Clean Planifié !',
+      `Votre règle est active pour ${targetAccount.displayName || targetAccount.username}.\n\n• Délai : Plus de ${daysLabel}\n• Périmètre : ${activeRule.targetScope === 'dms' ? 'DMs seuls' : activeRule.targetScope === 'guilds' ? 'Serveurs seuls' : 'Tout le compte'}\n• Fréquence : ${freqLabel}\n\nUne notification de confirmation a été envoyée sur votre téléphone.`,
       [
         {
           text: 'Compris',
@@ -140,13 +188,29 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
     );
   };
 
+  const handleDeleteRule = () => {
+    Alert.alert(
+      'Supprimer la règle',
+      'Voulez-vous désactiver l’Auto-Clean et supprimer cette planification ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteRule(activeRule.id);
+            Alert.alert('Règle supprimée', 'L’Auto-Clean a été réinitialisé pour ce compte.');
+            onClose();
+          },
+        },
+      ]
+    );
+  };
+
   const handleImmediateClean = () => {
     const targetAccount = currentAccount || accounts[0];
     if (!targetAccount) {
-      Alert.alert(
-        'Compte requis',
-        'Veuillez d’abord connecter un compte dans l’onglet Réseaux.'
-      );
+      Alert.alert('Compte requis', 'Veuillez d’abord connecter un compte dans l’onglet Réseaux.');
       return;
     }
 
@@ -160,6 +224,10 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
     }
   };
 
+  const selectedPeriod = RETENTION_PERIODS.find((p) => p.days === activeRule.retentionDays) ?? RETENTION_PERIODS[4];
+  const selectedFreq = FREQUENCIES.find((f) => f.id === activeRule.frequency) ?? FREQUENCIES[2];
+  const selectedScope = SCOPES.find((s) => s.id === (activeRule.targetScope ?? 'all')) ?? SCOPES[0];
+
   const contentJSX = (
     <SafeAreaView style={styles.container}>
       {/* En-tête */}
@@ -172,7 +240,7 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
           <Ionicons name={embedded ? 'arrow-back' : 'close'} size={24} color={theme.text.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1, alignItems: 'center', marginHorizontal: 8 }}>
-          <Text style={styles.headerTitle}>Auto-Clean & Rétention</Text>
+          <Text style={styles.headerTitle}>Auto-Clean Discord</Text>
           <Text style={styles.headerSubtitle}>Hygiène numérique automatique</Text>
         </View>
         <View style={{ width: 40 }} />
@@ -212,11 +280,13 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
               />
             </View>
             <View style={{ flex: 1, marginHorizontal: 12 }}>
-              <Text style={styles.mainCardTitle}>Règle de rétention active</Text>
+              <Text style={styles.mainCardTitle}>
+                {activeRule.enabled ? '🟢 Règle de rétention active' : '⚪ Auto-Clean désactivé'}
+              </Text>
               <Text style={styles.mainCardDesc}>
                 {activeRule.enabled
                   ? retentionService.formatRuleSummary(activeRule)
-                  : 'Désactivé • Vos anciens messages restent indéfiniment'}
+                  : 'Activez pour effacer vos anciens messages automatiquement'}
               </Text>
             </View>
             <Switch
@@ -236,168 +306,213 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
           )}
         </View>
 
-        {/* 1. Durée maximale de conservation */}
+        {/* 1. Menu déroulant : Délai de rétention maximal */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>1. Délai de rétention maximal</Text>
+          <Text style={styles.sectionTitle}>1. Délai de rétention (Ancienneté)</Text>
           <Text style={styles.sectionSubtitle}>
-            Tout message plus ancien que cette période sera ciblé pour suppression.
+            Tout message plus ancien que cette durée sera ciblé pour suppression.
           </Text>
 
-          <View style={styles.gridPeriods}>
-            {RETENTION_PERIODS.map((p) => {
-              const isSelected = activeRule.retentionDays === p.days;
-              return (
-                <TouchableOpacity
-                  key={p.days}
-                  style={[styles.periodCard, isSelected && styles.periodCardSelected]}
-                  onPress={() => handleUpdate({ retentionDays: p.days })}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.periodLabel, isSelected && styles.periodLabelSelected]}>
-                    {p.label}
-                  </Text>
-                  <Text style={[styles.periodSub, isSelected && styles.periodSubSelected]}>
-                    {p.sub}
-                  </Text>
-                  {isSelected && (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={16}
-                      color="#5865F2"
-                      style={styles.periodCheckIcon}
-                    />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
+          <TouchableOpacity
+            style={[styles.dropdownBtn, isPeriodDropdownOpen && styles.dropdownBtnActive]}
+            onPress={() => {
+              setIsPeriodDropdownOpen(!isPeriodDropdownOpen);
+              setIsFrequencyDropdownOpen(false);
+              setIsScopeDropdownOpen(false);
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={styles.dropdownLeft}>
+              <Ionicons name={selectedPeriod.icon as any} size={18} color="#5865F2" style={{ marginRight: 10 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.dropdownValue}>{selectedPeriod.label}</Text>
+                <Text style={styles.dropdownDesc} numberOfLines={1}>
+                  • {selectedPeriod.desc}
+                </Text>
+              </View>
+            </View>
+            <Ionicons name={isPeriodDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color={theme.text.secondary} />
+          </TouchableOpacity>
 
-        {/* 2. Fréquence d'exécution */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>2. Fréquence de passage</Text>
-          <View style={styles.frequencyRow}>
-            {FREQUENCIES.map((f) => {
-              const isSelected = activeRule.frequency === f.id;
-              return (
-                <TouchableOpacity
-                  key={f.id}
-                  style={[styles.frequencyBtn, isSelected && styles.frequencyBtnSelected]}
-                  onPress={() => handleUpdate({ frequency: f.id })}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={f.icon}
-                    size={16}
-                    color={isSelected ? '#5865F2' : theme.text.muted}
-                    style={{ marginRight: 6 }}
-                  />
-                  <Text style={[styles.frequencyBtnText, isSelected && styles.frequencyBtnTextSelected]}>
-                    {f.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* 3. Périmètre ciblé (Où nettoyer ?) */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>3. Périmètre ciblé (Où nettoyer ?)</Text>
-          <Text style={styles.sectionSubtitle}>
-            Choisissez les espaces où la purge automatique s'appliquera.
-          </Text>
-          <View style={styles.cardBox}>
-            {SCOPES.map((sc, sIdx) => {
-              const isSelected = (activeRule.targetScope ?? 'all') === sc.id;
-              return (
-                <React.Fragment key={sc.id}>
-                  {sIdx > 0 && <View style={styles.divider} />}
+          {isPeriodDropdownOpen && (
+            <View style={styles.dropdownMenu}>
+              {RETENTION_PERIODS.map((p, idx) => {
+                const isSelected = activeRule.retentionDays === p.days;
+                return (
                   <TouchableOpacity
-                    style={[styles.modeRow, isSelected && styles.modeRowActive]}
-                    onPress={() => handleUpdate({ targetScope: sc.id })}
+                    key={p.days}
+                    style={[
+                      styles.dropdownItem,
+                      isSelected && styles.dropdownItemSelected,
+                      idx < RETENTION_PERIODS.length - 1 && styles.dropdownItemBorder,
+                    ]}
+                    onPress={() => {
+                      handleUpdate({ retentionDays: p.days });
+                      setIsPeriodDropdownOpen(false);
+                    }}
                     activeOpacity={0.7}
                   >
                     <Ionicons
-                      name={isSelected ? 'radio-button-on' : 'radio-button-off'}
+                      name={p.icon as any}
                       size={18}
-                      color="#5865F2"
+                      color={isSelected ? '#5865F2' : theme.text.muted}
                       style={{ marginRight: 10 }}
                     />
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.modeTitle, isSelected && { color: '#5865F2', fontWeight: '700' }]}>
+                      <Text style={[styles.dropdownItemTitle, isSelected && { color: '#5865F2', fontWeight: '700' }]}>
+                        {p.label}
+                      </Text>
+                      <Text style={styles.dropdownItemSub}>{p.desc}</Text>
+                    </View>
+                    {isSelected && <Ionicons name="checkmark-circle" size={18} color="#5865F2" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
+        {/* 2. Menu déroulant : Fréquence de passage */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>2. Fréquence de vérification</Text>
+          <Text style={styles.sectionSubtitle}>
+            À quel rythme Cleanly inspecte votre compte en arrière-plan.
+          </Text>
+
+          <TouchableOpacity
+            style={[styles.dropdownBtn, isFrequencyDropdownOpen && styles.dropdownBtnActive]}
+            onPress={() => {
+              setIsFrequencyDropdownOpen(!isFrequencyDropdownOpen);
+              setIsPeriodDropdownOpen(false);
+              setIsScopeDropdownOpen(false);
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={styles.dropdownLeft}>
+              <Ionicons name={selectedFreq.icon as any} size={18} color="#5865F2" style={{ marginRight: 10 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.dropdownValue}>{selectedFreq.label}</Text>
+                <Text style={styles.dropdownDesc} numberOfLines={1}>
+                  • {selectedFreq.desc}
+                </Text>
+              </View>
+            </View>
+            <Ionicons name={isFrequencyDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color={theme.text.secondary} />
+          </TouchableOpacity>
+
+          {isFrequencyDropdownOpen && (
+            <View style={styles.dropdownMenu}>
+              {FREQUENCIES.map((f, idx) => {
+                const isSelected = activeRule.frequency === f.id;
+                return (
+                  <TouchableOpacity
+                    key={f.id}
+                    style={[
+                      styles.dropdownItem,
+                      isSelected && styles.dropdownItemSelected,
+                      idx < FREQUENCIES.length - 1 && styles.dropdownItemBorder,
+                    ]}
+                    onPress={() => {
+                      handleUpdate({ frequency: f.id });
+                      setIsFrequencyDropdownOpen(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={f.icon as any}
+                      size={18}
+                      color={isSelected ? '#5865F2' : theme.text.muted}
+                      style={{ marginRight: 10 }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.dropdownItemTitle, isSelected && { color: '#5865F2', fontWeight: '700' }]}>
+                        {f.label}
+                      </Text>
+                      <Text style={styles.dropdownItemSub}>{f.desc}</Text>
+                    </View>
+                    {isSelected && <Ionicons name="checkmark-circle" size={18} color="#5865F2" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
+        {/* 3. Menu déroulant : Périmètre ciblé (Où nettoyer ?) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>3. Périmètre ciblé (Où nettoyer ?)</Text>
+          <Text style={styles.sectionSubtitle}>
+            Choisissez les espaces où la purge s'appliquera sur Discord.
+          </Text>
+
+          <TouchableOpacity
+            style={[styles.dropdownBtn, isScopeDropdownOpen && styles.dropdownBtnActive]}
+            onPress={() => {
+              setIsScopeDropdownOpen(!isScopeDropdownOpen);
+              setIsPeriodDropdownOpen(false);
+              setIsFrequencyDropdownOpen(false);
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={styles.dropdownLeft}>
+              <Ionicons name={selectedScope.icon as any} size={18} color="#5865F2" style={{ marginRight: 10 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.dropdownValue}>{selectedScope.title}</Text>
+                <Text style={styles.dropdownDesc} numberOfLines={1}>
+                  • {selectedScope.desc}
+                </Text>
+              </View>
+            </View>
+            <Ionicons name={isScopeDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color={theme.text.secondary} />
+          </TouchableOpacity>
+
+          {isScopeDropdownOpen && (
+            <View style={styles.dropdownMenu}>
+              {SCOPES.map((sc, idx) => {
+                const isSelected = (activeRule.targetScope ?? 'all') === sc.id;
+                return (
+                  <TouchableOpacity
+                    key={sc.id}
+                    style={[
+                      styles.dropdownItem,
+                      isSelected && styles.dropdownItemSelected,
+                      idx < SCOPES.length - 1 && styles.dropdownItemBorder,
+                    ]}
+                    onPress={() => {
+                      handleUpdate({ targetScope: sc.id });
+                      setIsScopeDropdownOpen(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={sc.icon as any}
+                      size={18}
+                      color={isSelected ? '#5865F2' : theme.text.muted}
+                      style={{ marginRight: 10 }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.dropdownItemTitle, isSelected && { color: '#5865F2', fontWeight: '700' }]}>
                         {sc.title}
                       </Text>
-                      <Text style={styles.modeSub}>{sc.desc}</Text>
+                      <Text style={styles.dropdownItemSub}>{sc.desc}</Text>
                     </View>
+                    {isSelected && <Ionicons name="checkmark-circle" size={18} color="#5865F2" />}
                   </TouchableOpacity>
-                </React.Fragment>
-              );
-            })}
-          </View>
+                );
+              })}
+            </View>
+          )}
         </View>
 
-        {/* 4. Mode d'exécution */}
+        {/* 4. Protections avancées */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>4. Mode d'exécution</Text>
-          <View style={styles.cardBox}>
-            <TouchableOpacity
-              style={[
-                styles.modeRow,
-                activeRule.executionMode === 'notify_confirm' && styles.modeRowActive,
-              ]}
-              onPress={() => handleUpdate({ executionMode: 'notify_confirm' })}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={activeRule.executionMode === 'notify_confirm' ? 'radio-button-on' : 'radio-button-off'}
-                size={18}
-                color="#5865F2"
-                style={{ marginRight: 10 }}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modeTitle}>Alerte intelligente avec confirmation (Recommandé)</Text>
-                <Text style={styles.modeSub}>
-                  Cleanly vous notifie des messages expirés et vous demande confirmation en 1 clic.
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <View style={styles.divider} />
-
-            <TouchableOpacity
-              style={[
-                styles.modeRow,
-                activeRule.executionMode === 'auto_background' && styles.modeRowActive,
-              ]}
-              onPress={() => handleUpdate({ executionMode: 'auto_background' })}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={activeRule.executionMode === 'auto_background' ? 'radio-button-on' : 'radio-button-off'}
-                size={18}
-                color="#5865F2"
-                style={{ marginRight: 10 }}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modeTitle}>Purge automatique silencieuse</Text>
-                <Text style={styles.modeSub}>
-                  Supprime automatiquement les messages expirés en arrière-plan avec rapport de fin.
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 5. Protections & Sécurité */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>5. Protections avancées</Text>
+          <Text style={styles.sectionTitle}>4. Protections avancées</Text>
           <View style={styles.cardBox}>
             <View style={styles.switchOptionRow}>
               <View style={{ flex: 1, marginRight: 8 }}>
                 <Text style={styles.switchOptionTitle}>👻 Mode Furtif (Anti-Logs)</Text>
                 <Text style={styles.switchOptionSub}>
-                  Brouille le contenu avant suppression pour éviter les captures de bots de salon.
+                  Brouille le contenu avant suppression pour éviter les captures de bots espions.
                 </Text>
               </View>
               <Switch
@@ -425,19 +540,19 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
           </View>
         </View>
 
-        {/* Boutons d'action : Sauvegarder la planification (Principal) + Test direct (Secondaire) */}
+        {/* Boutons d'action */}
         <View style={styles.bottomSection}>
+          {/* Bouton principal vert : Sauvegarder et Armer la planification */}
           <TouchableOpacity
             style={styles.saveAndScheduleBtn}
             onPress={handleSaveAndSchedule}
             activeOpacity={0.85}
           >
             <Ionicons name="shield-checkmark" size={20} color="#FFF" style={{ marginRight: 8 }} />
-            <Text style={styles.saveAndScheduleBtnText}>
-              Sauvegarder & Activer la planification
-            </Text>
+            <Text style={styles.saveAndScheduleBtnText}>Sauvegarder & Armer la planification</Text>
           </TouchableOpacity>
 
+          {/* Bouton secondaire violet : Test de purge manuelle immédiate */}
           <TouchableOpacity
             style={styles.actionCleanNowBtnOutline}
             onPress={handleImmediateClean}
@@ -448,6 +563,18 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
               Tester une purge manuelle tout de suite (Optionnel)
             </Text>
           </TouchableOpacity>
+
+          {/* Bouton rouge : Supprimer la règle et réinitialiser */}
+          {existingRule && (
+            <TouchableOpacity
+              style={styles.deleteRuleBtn}
+              onPress={handleDeleteRule}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={15} color="#EF4444" style={{ marginRight: 6 }} />
+              <Text style={styles.deleteRuleBtnText}>Supprimer cette règle d’Auto-Clean</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={{ height: 40 }} />
@@ -583,100 +710,77 @@ const styles = StyleSheet.create({
     color: theme.text.muted,
     marginBottom: 8,
   },
-  gridPeriods: {
+  // Dropdown compacts (style DiscordCleanModal)
+  dropdownBtn: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  periodCard: {
-    width: '31%',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#FFF',
     borderWidth: 1,
     borderColor: theme.border.subtle,
-    borderRadius: theme.radius.sm,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    position: 'relative',
   },
-  periodCardSelected: {
+  dropdownBtnActive: {
     borderColor: '#5865F2',
-    backgroundColor: '#5865F20A',
+    backgroundColor: '#5865F206',
   },
-  periodLabel: {
-    fontSize: 13,
+  dropdownLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  dropdownValue: {
+    fontSize: 13.5,
     fontWeight: '700',
     color: theme.text.primary,
   },
-  periodLabelSelected: {
-    color: '#5865F2',
-  },
-  periodSub: {
-    fontSize: 9.5,
+  dropdownDesc: {
+    fontSize: 11,
     color: theme.text.muted,
-    marginTop: 2,
-    textAlign: 'center',
+    marginTop: 1,
   },
-  periodSubSelected: {
-    color: '#5865F2',
-    fontWeight: '600',
-  },
-  periodCheckIcon: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-  },
-  frequencyRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  frequencyBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  dropdownMenu: {
     backgroundColor: '#FFF',
     borderWidth: 1,
     borderColor: theme.border.subtle,
-    borderRadius: theme.radius.sm,
-    paddingVertical: 9,
+    borderRadius: theme.radius.md,
+    marginTop: 6,
+    overflow: 'hidden',
+    elevation: 3,
   },
-  frequencyBtnSelected: {
-    borderColor: '#5865F2',
-    backgroundColor: '#5865F20A',
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  frequencyBtnText: {
-    fontSize: 12,
+  dropdownItemSelected: {
+    backgroundColor: '#5865F20D',
+  },
+  dropdownItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border.subtle,
+  },
+  dropdownItemTitle: {
+    fontSize: 13,
     fontWeight: '600',
-    color: theme.text.secondary,
+    color: theme.text.primary,
   },
-  frequencyBtnTextSelected: {
-    color: '#5865F2',
-    fontWeight: '700',
+  dropdownItemSub: {
+    fontSize: 10.5,
+    color: theme.text.muted,
+    marginTop: 1,
   },
   cardBox: {
     backgroundColor: '#FFF',
-    borderRadius: theme.radius.sm,
+    borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.border.subtle,
     paddingHorizontal: 12,
     paddingVertical: 6,
-  },
-  modeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  modeRowActive: {},
-  modeTitle: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: theme.text.primary,
-  },
-  modeSub: {
-    fontSize: 10.5,
-    color: theme.text.muted,
-    marginTop: 1,
   },
   switchOptionRow: {
     flexDirection: 'row',
@@ -735,17 +839,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#5865F2',
   },
-  actionCleanNowBtn: {
+  deleteRuleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#5865F2',
-    borderRadius: theme.radius.md,
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
-  actionCleanNowText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFF',
+  deleteRuleBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#EF4444',
   },
 });
