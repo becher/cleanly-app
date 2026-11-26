@@ -408,10 +408,27 @@ export function DiscordCleanModal({
             await Promise.all(
               batch.map(async (dm) => {
                 try {
-                  const msgs = await getDiscordMessages(token, dm.id);
-                  for (const msg of msgs) {
-                    if (matchesFiltersLocal(msg)) {
-                      allFound.push({ ...msg, channel_name: dm.name });
+                  let lastMsgId: string | undefined;
+                  let hasMore = true;
+                  let fetchedCount = 0;
+                  const MAX_MSGS = 500;
+
+                  while (hasMore && fetchedCount < MAX_MSGS) {
+                    if (scanAbortedRef.current) break;
+                    const msgs = await getDiscordMessages(token, dm.id, lastMsgId);
+                    if (!msgs || msgs.length === 0) break;
+                    fetchedCount += msgs.length;
+
+                    for (const msg of msgs) {
+                      if (matchesFiltersLocal(msg)) {
+                        allFound.push({ ...msg, channel_name: dm.name });
+                      }
+                    }
+
+                    if (msgs.length < 100) {
+                      hasMore = false;
+                    } else {
+                      lastMsgId = msgs[msgs.length - 1].id;
                     }
                   }
                 } catch (e) {
@@ -691,6 +708,16 @@ export function DiscordCleanModal({
         msg.author?.id === resolvedUserId ||
         msg.author?.id === userId ||
         (userId.startsWith('discord_') && msg.author?.id === userId.replace('discord_', ''));
+
+      console.log('[Cleanly Msg Examined]', {
+        content: msg.content,
+        author: msg.author?.username,
+        authorId: msg.author?.id,
+        targetAuthorId,
+        isAuthor,
+        timestamp: msg.timestamp,
+      });
+
       if (!isAuthor) return false;
       if (ignorePinned && msg.pinned) return false;
       if (thresholdDate > 0) {
@@ -842,13 +869,30 @@ export function DiscordCleanModal({
                 const channelName = channelObj ? channelObj.name : channelId;
 
                 try {
-                  const messages = await getDiscordMessages(token, channelId);
-                  for (const msg of messages) {
-                    if (matchesFilters(msg)) {
-                      allFound.push({
-                        ...msg,
-                        channel_name: channelName,
-                      });
+                  let lastMsgId: string | undefined;
+                  let hasMore = true;
+                  let fetchedCount = 0;
+                  const MAX_MSGS = 500;
+
+                  while (hasMore && fetchedCount < MAX_MSGS) {
+                    if (scanAbortedRef.current) break;
+                    const messages = await getDiscordMessages(token, channelId, lastMsgId);
+                    if (!messages || messages.length === 0) break;
+                    fetchedCount += messages.length;
+
+                    for (const msg of messages) {
+                      if (matchesFilters(msg)) {
+                        allFound.push({
+                          ...msg,
+                          channel_name: channelName,
+                        });
+                      }
+                    }
+
+                    if (messages.length < 100) {
+                      hasMore = false;
+                    } else {
+                      lastMsgId = messages[messages.length - 1].id;
                     }
                   }
                 } catch (e) {
