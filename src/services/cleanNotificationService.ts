@@ -2,8 +2,13 @@ import notifee, {
   AndroidImportance,
   AndroidColor,
   EventType,
+  TriggerType,
+  TimestampTrigger,
+  AlarmType,
+  RepeatFrequency,
 } from '@notifee/react-native';
 import { Platform } from 'react-native';
+import type { RetentionRule } from '../types';
 
 export type CleanPlatformType =
   | 'discord'
@@ -412,6 +417,104 @@ class CleanNotificationService {
       });
     } catch (e) {
       console.warn('[CleanNotificationService] Erreur notifyRetentionScheduled:', e);
+    }
+  }
+
+  /**
+   * Planifie un réveil natif du système (AlarmManager Android / iOS Background)
+   * Déclenche la notification même si l'application a été tuée / fermée
+   */
+  async scheduleRetentionTrigger(rule: RetentionRule): Promise<void> {
+    try {
+      await this.initNotificationChannels();
+      const config = getPlatformConfig(rule.platform);
+      const triggerId = `trigger_retention_${rule.id}`;
+
+      // Annuler l'ancien trigger s'il existait
+      try {
+        await notifee.cancelTriggerNotification(triggerId);
+      } catch (e) {
+        // Ignorer
+      }
+
+      if (!rule.enabled || !rule.nextRunAt) return;
+
+      const daysText =
+        rule.retentionDays === -2
+          ? 'Tous les messages'
+          : rule.retentionDays === 1
+          ? '24 heures'
+          : `${rule.retentionDays} jours`;
+
+      // Si l'échéance est passée, déclencher dans 5 secondes
+      const fireTime = rule.nextRunAt > Date.now() ? rule.nextRunAt : Date.now() + 5000;
+
+      const repeatFreq =
+        rule.frequency === 'daily'
+          ? RepeatFrequency.DAILY
+          : rule.frequency === 'weekly'
+          ? RepeatFrequency.WEEKLY
+          : RepeatFrequency.NONE;
+
+      const trigger: TimestampTrigger = {
+        type: TriggerType.TIMESTAMP,
+        timestamp: fireTime,
+        repeatFrequency: repeatFreq,
+        alarmManager: {
+          type: AlarmType.SET_EXACT_AND_ALLOW_WHILE_IDLE,
+        },
+      };
+
+      await notifee.createTriggerNotification(
+        {
+          id: triggerId,
+          title: `Auto-Clean ${config.displayName} : purge prête`,
+          body: `Vos messages de plus de ${daysText} sont prêts à être nettoyés. Touchez pour lancer la purge.`,
+          data: {
+            ruleId: rule.id,
+            platform: rule.platform,
+            accountId: rule.accountId,
+            action: 'auto_clean_ready',
+          },
+          android: {
+            channelId: 'cleanly_retention',
+            color: config.brandColor,
+            pressAction: {
+              id: 'default',
+            },
+          },
+          ios: {
+            sound: 'default',
+          },
+        },
+        trigger
+      );
+    } catch (e) {
+      console.warn('[CleanNotificationService] Erreur scheduleRetentionTrigger:', e);
+    }
+  }
+
+  /**
+   * Annule le trigger natif d'une règle (ex: suppression de règle ou désactivation)
+   */
+  async cancelRetentionTrigger(ruleId: string): Promise<void> {
+    try {
+      await notifee.cancelTriggerNotification(`trigger_retention_${ruleId}`);
+    } catch (e) {
+      // Ignorer si inexistant
+    }
+  }
+
+  /**
+   * Synchronise tous les triggers natifs pour l'ensemble des règles actives
+   */
+  async syncAllRetentionTriggers(rules: RetentionRule[]): Promise<void> {
+    for (const rule of rules) {
+      if (rule.enabled) {
+        await this.scheduleRetentionTrigger(rule);
+      } else {
+        await this.cancelRetentionTrigger(rule.id);
+      }
     }
   }
 }

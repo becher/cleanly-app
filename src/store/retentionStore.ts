@@ -2,6 +2,7 @@
 // Sauvegarde chiffrée locale avec fallback mémoire transparent
 
 import { create } from 'zustand';
+import { cleanNotificationService } from '../services/cleanNotificationService';
 import type { RetentionRule } from '../types';
 
 let EncryptedStorage: any = null;
@@ -68,6 +69,8 @@ export const useRetentionStore = create<RetentionState>((set, get) => ({
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
           set({ rules: parsed, isLoaded: true });
+          // Synchronise les triggers AlarmManager natifs pour toutes les règles
+          cleanNotificationService.syncAllRetentionTriggers(parsed).catch(() => {});
           return;
         }
       }
@@ -87,6 +90,11 @@ export const useRetentionStore = create<RetentionState>((set, get) => ({
     set({ rules: updated });
     try {
       await safeStorage.setItem(RETENTION_RULES_KEY, JSON.stringify(updated));
+      if (rule.enabled) {
+        await cleanNotificationService.scheduleRetentionTrigger(rule);
+      } else {
+        await cleanNotificationService.cancelRetentionTrigger(rule.id);
+      }
     } catch (e) {
       console.warn('Erreur sauvegarde retention rule:', e);
     }
@@ -97,6 +105,7 @@ export const useRetentionStore = create<RetentionState>((set, get) => ({
     set({ rules: updated });
     try {
       await safeStorage.setItem(RETENTION_RULES_KEY, JSON.stringify(updated));
+      await cleanNotificationService.cancelRetentionTrigger(ruleId);
     } catch (e) {
       console.warn('Erreur suppression retention rule:', e);
     }
@@ -108,6 +117,12 @@ export const useRetentionStore = create<RetentionState>((set, get) => ({
     set({ rules: updated });
     try {
       await safeStorage.setItem(RETENTION_RULES_KEY, JSON.stringify(updated));
+      const target = updated.find((r) => r.id === ruleId);
+      if (target && enabled) {
+        await cleanNotificationService.scheduleRetentionTrigger(target);
+      } else {
+        await cleanNotificationService.cancelRetentionTrigger(ruleId);
+      }
     } catch (e) {
       console.warn('Erreur toggle retention rule:', e);
     }
@@ -116,6 +131,7 @@ export const useRetentionStore = create<RetentionState>((set, get) => ({
   updateRuleLastRun: async (ruleId: string, cleanedCount: number = 0) => {
     const current = get().rules;
     const now = Date.now();
+    let updatedTarget: RetentionRule | undefined;
     const updated = current.map((r) => {
       if (r.id !== ruleId) return r;
       // Calcul du prochain run selon la fréquence
@@ -124,17 +140,22 @@ export const useRetentionStore = create<RetentionState>((set, get) => ({
       if (r.frequency === 'weekly') intervalMs = 7 * 24 * 3600 * 1000;
       if (r.frequency === 'monthly') intervalMs = 30 * 24 * 3600 * 1000;
 
-      return {
+      const res = {
         ...r,
         lastRunAt: now,
         nextRunAt: now + intervalMs,
         autoCleanedCount: (r.autoCleanedCount ?? 0) + cleanedCount,
       };
+      updatedTarget = res;
+      return res;
     });
 
     set({ rules: updated });
     try {
       await safeStorage.setItem(RETENTION_RULES_KEY, JSON.stringify(updated));
+      if (updatedTarget && updatedTarget.enabled) {
+        await cleanNotificationService.scheduleRetentionTrigger(updatedTarget);
+      }
     } catch (e) {
       console.warn('Erreur mise à jour last run retention rule:', e);
     }
