@@ -3,10 +3,6 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { theme } from '../constants/theme';
-import { RetentionModal } from '../components/RetentionModal';
-import { DiscordCleanModal } from '../components/DiscordCleanModal';
-import { useHistoryStore } from '../store/historyStore';
-import type { PlatformAccount } from '../types';
 
 const LANGUAGES = [
   { code: 'fr', label: 'Français', flag: '🇫🇷' },
@@ -18,30 +14,9 @@ const LANGUAGES = [
 
 export function SettingsScreen() {
   const [currentLang, setCurrentLang] = useState('fr');
-  const [showRetentionView, setShowRetentionView] = useState(false);
-  const [cleaningAccount, setCleaningAccount] = useState<PlatformAccount | null>(null);
-  const [retentionCleanDays, setRetentionCleanDays] = useState<number | undefined>(undefined);
-  const [retentionGhostMode, setRetentionGhostMode] = useState<boolean | undefined>(undefined);
-  const [retentionIgnorePinned, setRetentionIgnorePinned] = useState<boolean | undefined>(undefined);
-  const loadHistory = useHistoryStore((s) => s.loadHistory);
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg.base }}>
-      {showRetentionView ? (
-        <RetentionModal
-          visible={true}
-          embedded={true}
-          onClose={() => setShowRetentionView(false)}
-          onTriggerClean={(acc, days, stealth, pinned) => {
-            setShowRetentionView(false);
-            setRetentionCleanDays(days);
-            setRetentionGhostMode(stealth);
-            setRetentionIgnorePinned(pinned);
-            setCleaningAccount(acc);
-          }}
-        />
-      ) : (
-        <ScrollView style={styles.page} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.page} showsVerticalScrollIndicator={false}>
       {/* Forfait */}
       <View style={styles.planCard}>
         <View style={styles.planHeader}>
@@ -84,23 +59,6 @@ export function SettingsScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Confidentialité & Sécurité</Text>
         <View style={styles.card}>
-          <TouchableOpacity
-            style={styles.actionRow}
-            onPress={() => setShowRetentionView(true)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="timer-outline" size={22} color="#5865F2" />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.securityTitle}>Auto-Clean & Règles de rétention</Text>
-              <Text style={styles.securityDesc}>
-                Configurez la purge automatique ou les rappels pour vos anciens messages.
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.text.muted} />
-          </TouchableOpacity>
-
-          <View style={styles.borderBottom} />
-
           <View style={styles.securityRow}>
             <Ionicons name="shield-checkmark" size={22} color={theme.accent.green} />
             <View style={{ flex: 1, marginLeft: 12 }}>
@@ -113,30 +71,9 @@ export function SettingsScreen() {
         </View>
       </View>
 
-        <View style={{ height: 32 }} />
-      </ScrollView>
-    )}
-
-    {/* Modale de nettoyage Discord — Toujours stable à la racine */}
-    {cleaningAccount?.platform === 'discord' && (
-      <DiscordCleanModal
-        visible={true}
-        token={cleaningAccount.token}
-        userId={cleaningAccount.id.replace('discord_', '')}
-        initialFilterDays={retentionCleanDays}
-        initialGhostMode={retentionGhostMode}
-        initialIgnorePinned={retentionIgnorePinned}
-        onClose={() => {
-          setCleaningAccount(null);
-          setRetentionCleanDays(undefined);
-        }}
-        onFinished={() => {
-          loadHistory();
-        }}
-      />
-    )}
-  </View>
-);
+      <View style={{ height: 32 }} />
+    </ScrollView>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -229,11 +166,6 @@ const styles = StyleSheet.create({
     color: theme.text.primary,
   },
   securityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
