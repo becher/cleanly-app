@@ -356,6 +356,15 @@ export function DiscordCleanModal({
         if (effIgnorePinned && msg.pinned) return false;
         if (thresholdDate > 0) {
           const msgDate = new Date(msg.timestamp).getTime();
+          console.log('[Cleanly Debug Auto Date]', {
+            content: msg.content,
+            rawTimestamp: msg.timestamp,
+            msgDate,
+            now: Date.now(),
+            thresholdDate,
+            diffHours: (Date.now() - msgDate) / (1000 * 3600),
+            isFilteredOut: msgDate > thresholdDate,
+          });
           if (msgDate > thresholdDate) return false;
         }
         if (lowerKeyword && !msg.content.toLowerCase().includes(lowerKeyword)) {
@@ -686,6 +695,15 @@ export function DiscordCleanModal({
       if (ignorePinned && msg.pinned) return false;
       if (thresholdDate > 0) {
         const msgDate = new Date(msg.timestamp).getTime();
+        console.log('[Cleanly Debug Date]', {
+          content: msg.content,
+          rawTimestamp: msg.timestamp,
+          msgDate,
+          now: Date.now(),
+          thresholdDate,
+          diffHours: (Date.now() - msgDate) / (1000 * 3600),
+          isFilteredOut: msgDate > thresholdDate,
+        });
         if (msgDate > thresholdDate) return false;
       }
       if (lowerKeyword && !msg.content.toLowerCase().includes(lowerKeyword)) {
