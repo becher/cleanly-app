@@ -37,6 +37,7 @@ import {
   closeDiscordDMChannel,
   deleteDiscordReaction,
   searchDiscordGuildMessages,
+  getDiscordCurrentUser,
   DiscordGuild,
   DiscordChannel,
   DiscordMessage,
@@ -174,6 +175,19 @@ export function DiscordCleanModal({
   initialAutoCloseDMs,
 }: Props) {
   const [step, setStep] = useState<Step>('select_guild');
+  const [resolvedUserId, setResolvedUserId] = useState<string>(userId);
+
+  useEffect(() => {
+    if (token) {
+      getDiscordCurrentUser(token)
+        .then((u) => {
+          if (u?.id) {
+            setResolvedUserId(u.id);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [token]);
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('Chargement en cours...');
   const [error, setError] = useState<string | null>(null);
@@ -333,7 +347,11 @@ export function DiscordCleanModal({
       const allFound: DiscordMessage[] = [];
 
       const matchesFiltersLocal = (msg: DiscordMessage) => {
-        const isAuthor = msg.author?.id === targetUserId || msg.author?.id === userId;
+        const isAuthor =
+          msg.author?.id === targetUserId ||
+          msg.author?.id === resolvedUserId ||
+          msg.author?.id === userId ||
+          (userId.startsWith('discord_') && msg.author?.id === userId.replace('discord_', ''));
         if (!isAuthor) return false;
         if (effIgnorePinned && msg.pinned) return false;
         if (thresholdDate > 0) {
@@ -653,9 +671,18 @@ export function DiscordCleanModal({
     const linkRegex = /(https?:\/\/[^\s]+)/g;
     const allFound: DiscordMessage[] = [];
 
+    const targetAuthorId =
+      resolvedUserId ||
+      (userId.startsWith('discord_') ? userId.replace('discord_', '') : userId);
+
     // Helper pour valider les filtres sur un message
     const matchesFilters = (msg: DiscordMessage) => {
-      if (msg.author.id !== userId) return false;
+      const isAuthor =
+        msg.author?.id === targetAuthorId ||
+        msg.author?.id === resolvedUserId ||
+        msg.author?.id === userId ||
+        (userId.startsWith('discord_') && msg.author?.id === userId.replace('discord_', ''));
+      if (!isAuthor) return false;
       if (ignorePinned && msg.pinned) return false;
       if (thresholdDate > 0) {
         const msgDate = new Date(msg.timestamp).getTime();
@@ -693,7 +720,7 @@ export function DiscordCleanModal({
             batch.map(async (g) => {
               try {
                 let searchRes = await searchDiscordGuildMessages(token, g.id, {
-                  authorId: userId,
+                  authorId: targetAuthorId,
                   content: useDiscordContent ? trimmedKeyword : undefined,
                   has: onlyWithAttachments ? 'file' : onlyWithLinks ? 'link' : undefined,
                 });
@@ -704,7 +731,7 @@ export function DiscordCleanModal({
                   (!searchRes || !searchRes.messages || searchRes.messages.length === 0)
                 ) {
                   const fallbackRes = await searchDiscordGuildMessages(token, g.id, {
-                    authorId: userId,
+                    authorId: targetAuthorId,
                     has: onlyWithAttachments ? 'file' : onlyWithLinks ? 'link' : undefined,
                   });
                   if (fallbackRes && fallbackRes.messages && fallbackRes.messages.length > 0) {
@@ -742,7 +769,7 @@ export function DiscordCleanModal({
             const useDiscordContent = trimmedKeyword.length >= 3;
 
             let searchRes = await searchDiscordGuildMessages(token, selectedGuild.id, {
-              authorId: userId,
+              authorId: targetAuthorId,
               content: useDiscordContent ? trimmedKeyword : undefined,
               has: onlyWithAttachments ? 'file' : onlyWithLinks ? 'link' : undefined,
             });
@@ -753,7 +780,7 @@ export function DiscordCleanModal({
               (!searchRes || !searchRes.messages || searchRes.messages.length === 0)
             ) {
               const fallbackRes = await searchDiscordGuildMessages(token, selectedGuild.id, {
-                authorId: userId,
+                authorId: targetAuthorId,
                 has: onlyWithAttachments ? 'file' : onlyWithLinks ? 'link' : undefined,
               });
               if (fallbackRes && fallbackRes.messages && fallbackRes.messages.length > 0) {

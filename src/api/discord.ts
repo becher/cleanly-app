@@ -53,6 +53,19 @@ export type DiscordGuild = {
 };
 
 /**
+ * Récupère le profil de l'utilisateur Discord connecté (@me)
+ */
+export async function getDiscordCurrentUser(token: string): Promise<{ id: string; username: string } | null> {
+  return runWith429Retry(async () => {
+    const response = await fetch(`${DISCORD_API}/users/@me`, {
+      headers: getHeaders(token),
+    });
+    if (!response.ok) return null;
+    return response.json();
+  }, 'discord');
+}
+
+/**
  * Récupère les guildes (serveurs) de l'utilisateur
  */
 export async function getDiscordGuilds(token: string): Promise<DiscordGuild[]> {
