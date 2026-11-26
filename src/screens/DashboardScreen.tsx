@@ -46,6 +46,10 @@ export function DashboardScreen() {
   const [retentionCleanDays, setRetentionCleanDays] = useState<number | undefined>(undefined);
   const [retentionGhostMode, setRetentionGhostMode] = useState<boolean | undefined>(undefined);
   const [retentionIgnorePinned, setRetentionIgnorePinned] = useState<boolean | undefined>(undefined);
+  const [retentionScope, setRetentionScope] = useState<'all' | 'dms' | 'guilds' | undefined>(undefined);
+  const [retentionKeyword, setRetentionKeyword] = useState<string | undefined>(undefined);
+  const [retentionAutoStart, setRetentionAutoStart] = useState<boolean>(false);
+  const [retentionSilentMode, setRetentionSilentMode] = useState<boolean>(false);
 
   const retentionRules = useRetentionStore((s) => s.rules);
   const anyActiveRule = retentionRules.find((r) => r.enabled);
@@ -77,31 +81,53 @@ export function DashboardScreen() {
             retentionDays: rule.retentionDays,
           });
 
-          // Proposer directement l'action dans l'application si elle est ouverte
-          Alert.alert(
-            '🛡️ Auto-Clean : Purge prête !',
-            `Le délai d'Auto-Clean pour ${account.displayName || account.username} est atteint (${retentionService.formatRuleSummary(rule)}).\n\nVoulez-vous lancer le nettoyage maintenant ?`,
-            [
-              {
-                text: 'Plus tard',
-                style: 'cancel',
-                onPress: () => {
-                  useRetentionStore.getState().updateRuleLastRun(rule.id, 0);
+          if (rule.executionMode === 'auto_background') {
+            // Mode 100% Silencieux automatique : lance directement la purge
+            await useRetentionStore.getState().updateRuleLastRun(rule.id, 0);
+            handleClean(
+              account,
+              rule.retentionDays === 0 ? -1 : rule.retentionDays,
+              rule.stealthMode,
+              rule.ignorePinned,
+              rule.targetScope,
+              rule.keyword,
+              true, // autoStart
+              true  // silentMode
+            );
+          } else {
+            // Mode avec confirmation : demande validation
+            Alert.alert(
+              '🛡️ Auto-Clean : Purge prête !',
+              `Le délai d'Auto-Clean pour ${account.displayName || account.username} est atteint (${retentionService.formatRuleSummary(rule)}).\n\nVoulez-vous lancer le nettoyage maintenant ?`,
+              [
+                {
+                  text: 'Plus tard',
+                  style: 'cancel',
+                  onPress: () => {
+                    useRetentionStore.getState().updateRuleLastRun(rule.id, 0);
+                  },
                 },
-              },
-              {
-                text: '🧹 Purger maintenant',
-                style: 'default',
-                onPress: () => {
-                  useRetentionStore.getState().updateRuleLastRun(rule.id, 0);
-                  handleClean(account, rule.retentionDays === 0 ? -1 : rule.retentionDays);
+                {
+                  text: '🧹 Purger maintenant',
+                  style: 'default',
+                  onPress: () => {
+                    useRetentionStore.getState().updateRuleLastRun(rule.id, 0);
+                    handleClean(
+                      account,
+                      rule.retentionDays === 0 ? -1 : rule.retentionDays,
+                      rule.stealthMode,
+                      rule.ignorePinned,
+                      rule.targetScope,
+                      rule.keyword,
+                      true, // autoStart direct
+                      false // silentMode
+                    );
+                  },
                 },
-              },
-            ]
-          );
-
-          // Reprogrammer pour le cycle suivant pour éviter le spam
-          await useRetentionStore.getState().updateRuleLastRun(rule.id, 0);
+              ]
+            );
+            await useRetentionStore.getState().updateRuleLastRun(rule.id, 0);
+          }
           break;
         }
       }
@@ -110,8 +136,24 @@ export function DashboardScreen() {
     return () => clearInterval(timer);
   }, [loadHistory]);
 
-  const handleClean = (account: PlatformAccount, days?: number) => {
+  const handleClean = (
+    account: PlatformAccount,
+    days?: number,
+    stealthMode?: boolean,
+    ignorePinned?: boolean,
+    scope?: 'all' | 'dms' | 'guilds',
+    keyword?: string,
+    autoStart: boolean = false,
+    silentMode: boolean = false
+  ) => {
     setRetentionCleanDays(days);
+    setRetentionGhostMode(stealthMode);
+    setRetentionIgnorePinned(ignorePinned);
+    setRetentionScope(scope);
+    setRetentionKeyword(keyword);
+    setRetentionAutoStart(autoStart);
+    setRetentionSilentMode(silentMode);
+
     if (account.platform === 'discord') {
       setCleaningAccount(account);
     } else {
@@ -132,13 +174,10 @@ export function DashboardScreen() {
             setShowRetentionView(false);
             setSelectedRetentionAccountId(undefined);
           }}
-          onTriggerClean={(acc, days, stealth, pinned) => {
+          onTriggerClean={(acc, days, stealth, pinned, scope, keyword, autoStart, silentMode) => {
             setShowRetentionView(false);
             setSelectedRetentionAccountId(undefined);
-            setRetentionCleanDays(days);
-            setRetentionGhostMode(stealth);
-            setRetentionIgnorePinned(pinned);
-            setCleaningAccount(acc);
+            handleClean(acc, days, stealth, pinned, scope, keyword, autoStart, silentMode);
           }}
         />
       ) : (
@@ -233,7 +272,16 @@ export function DashboardScreen() {
                           if (rule) {
                             useRetentionStore.getState().updateRuleLastRun(rule.id, 0);
                           }
-                          handleClean(account, rule?.retentionDays === 0 ? -1 : rule?.retentionDays);
+                          handleClean(
+                            account,
+                            rule?.retentionDays === 0 ? -1 : rule?.retentionDays,
+                            rule?.stealthMode,
+                            rule?.ignorePinned,
+                            rule?.targetScope,
+                            rule?.keyword,
+                            true, // autoStart direct
+                            rule?.executionMode === 'auto_background'
+                          );
                         },
                       },
                     ]
@@ -301,9 +349,19 @@ export function DashboardScreen() {
           initialFilterDays={retentionCleanDays}
           initialGhostMode={retentionGhostMode}
           initialIgnorePinned={retentionIgnorePinned}
+          initialScope={retentionScope}
+          initialKeyword={retentionKeyword}
+          autoStart={retentionAutoStart}
+          silentMode={retentionSilentMode}
           onClose={() => {
             setCleaningAccount(null);
             setRetentionCleanDays(undefined);
+            setRetentionGhostMode(undefined);
+            setRetentionIgnorePinned(undefined);
+            setRetentionScope(undefined);
+            setRetentionKeyword(undefined);
+            setRetentionAutoStart(false);
+            setRetentionSilentMode(false);
           }}
           onFinished={(count) => {
             loadHistory();

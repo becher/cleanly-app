@@ -11,6 +11,7 @@ import {
   SafeAreaView,
   Switch,
   Alert,
+  TextInput,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { theme, PLATFORM_COLORS } from '../constants/theme';
@@ -27,7 +28,11 @@ interface RetentionModalProps {
     account: PlatformAccount,
     days: number,
     stealthMode?: boolean,
-    ignorePinned?: boolean
+    ignorePinned?: boolean,
+    targetScope?: 'all' | 'dms' | 'guilds',
+    keyword?: string,
+    autoStart?: boolean,
+    silentMode?: boolean
   ) => void;
   embedded?: boolean;
   initialAccountId?: string;
@@ -228,7 +233,11 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
         targetAccount,
         activeRule.retentionDays === 0 ? -1 : activeRule.retentionDays,
         activeRule.stealthMode,
-        activeRule.ignorePinned
+        activeRule.ignorePinned,
+        activeRule.targetScope ?? 'all',
+        activeRule.keyword,
+        true,
+        activeRule.executionMode === 'auto_background'
       );
     }
   };
@@ -513,9 +522,34 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
           )}
         </View>
 
-        {/* 4. Protections avancées */}
+        {/* 4. Filtre par mot-clé (Optionnel) */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>4. Protections avancées</Text>
+          <Text style={styles.sectionTitle}>4. Mot-clé spécifique (Optionnel)</Text>
+          <Text style={styles.sectionSubtitle}>
+            Ciblez uniquement les messages contenant ce terme (ex: mot de passe, secret). Laissez vide pour tout purger.
+          </Text>
+          <View style={styles.keywordInputBox}>
+            <Ionicons name="search-outline" size={18} color={theme.text.muted} style={{ marginRight: 8 }} />
+            <TextInput
+              style={styles.keywordTextInput}
+              placeholder="Ex: pass, secret, token... (vide = tous)"
+              placeholderTextColor={theme.text.muted}
+              value={activeRule.keyword || ''}
+              onChangeText={(text) => handleUpdate({ keyword: text })}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {Boolean(activeRule.keyword) && (
+              <TouchableOpacity onPress={() => handleUpdate({ keyword: '' })} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close-circle" size={18} color={theme.text.muted} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* 5. Protections avancées */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>5. Protections avancées</Text>
           <View style={styles.cardBox}>
             <View style={styles.switchOptionRow}>
               <View style={{ flex: 1, marginRight: 8 }}>
@@ -546,6 +580,77 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
                 trackColor={{ true: '#5865F2', false: theme.bg.raised }}
               />
             </View>
+          </View>
+        </View>
+
+        {/* 6. Mode d'exécution */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>6. Mode d'exécution</Text>
+          <Text style={styles.sectionSubtitle}>
+            Choisissez si Cleanly doit vous demander validation ou agir silencieusement.
+          </Text>
+          <View style={styles.execModeContainer}>
+            <TouchableOpacity
+              style={[
+                styles.execModeCard,
+                activeRule.executionMode === 'notify_confirm' && styles.execModeCardSelected,
+              ]}
+              onPress={() => handleUpdate({ executionMode: 'notify_confirm' })}
+              activeOpacity={0.7}
+            >
+              <View style={styles.execModeHeader}>
+                <Ionicons
+                  name="notifications-outline"
+                  size={18}
+                  color={activeRule.executionMode === 'notify_confirm' ? '#5865F2' : theme.text.muted}
+                />
+                <Text
+                  style={[
+                    styles.execModeTitle,
+                    activeRule.executionMode === 'notify_confirm' && { color: '#5865F2', fontWeight: '700' },
+                  ]}
+                >
+                  Avec confirmation
+                </Text>
+                {activeRule.executionMode === 'notify_confirm' && (
+                  <Ionicons name="checkmark-circle" size={18} color="#5865F2" style={{ marginLeft: 'auto' }} />
+                )}
+              </View>
+              <Text style={styles.execModeDesc}>
+                Alerte de rappel à l'échéance : vous validez la purge avant toute suppression.
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.execModeCard,
+                activeRule.executionMode === 'auto_background' && styles.execModeCardSelectedGreen,
+              ]}
+              onPress={() => handleUpdate({ executionMode: 'auto_background' })}
+              activeOpacity={0.7}
+            >
+              <View style={styles.execModeHeader}>
+                <Ionicons
+                  name="flash-outline"
+                  size={18}
+                  color={activeRule.executionMode === 'auto_background' ? '#10B981' : theme.text.muted}
+                />
+                <Text
+                  style={[
+                    styles.execModeTitle,
+                    activeRule.executionMode === 'auto_background' && { color: '#10B981', fontWeight: '700' },
+                  ]}
+                >
+                  🤖 100% Silencieux
+                </Text>
+                {activeRule.executionMode === 'auto_background' && (
+                  <Ionicons name="checkmark-circle" size={18} color="#10B981" style={{ marginLeft: 'auto' }} />
+                )}
+              </View>
+              <Text style={styles.execModeDesc}>
+                Purge automatique discrète dès l’échéance sans vous interrompre.
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -847,6 +952,56 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#5865F2',
+  },
+  keywordInputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  keywordTextInput: {
+    flex: 1,
+    fontSize: 13,
+    color: theme.text.primary,
+    paddingVertical: 8,
+  },
+  execModeContainer: {
+    gap: 8,
+  },
+  execModeCard: {
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: theme.border.subtle,
+    borderRadius: theme.radius.md,
+    padding: 12,
+  },
+  execModeCardSelected: {
+    borderColor: '#5865F2',
+    backgroundColor: '#5865F208',
+  },
+  execModeCardSelectedGreen: {
+    borderColor: '#10B981',
+    backgroundColor: '#10B98108',
+  },
+  execModeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  execModeTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.text.primary,
+  },
+  execModeDesc: {
+    fontSize: 11,
+    color: theme.text.muted,
+    lineHeight: 15,
   },
   deleteRuleBtn: {
     flexDirection: 'row',

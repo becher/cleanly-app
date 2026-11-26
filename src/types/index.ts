@@ -94,6 +94,7 @@ export interface RetentionRule {
   targetScope: 'all' | 'dms' | 'guilds';
   stealthMode: boolean;
   ignorePinned: boolean;
+  keyword?: string;
   executionMode: 'auto_background' | 'notify_confirm';
   autoCleanedCount?: number;
 }

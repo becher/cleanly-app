@@ -51,6 +51,10 @@ type Props = {
   initialFilterDays?: number;
   initialGhostMode?: boolean;
   initialIgnorePinned?: boolean;
+  initialScope?: 'all' | 'dms' | 'guilds';
+  initialKeyword?: string;
+  autoStart?: boolean;
+  silentMode?: boolean;
 };
 
 type Step =
@@ -156,6 +160,10 @@ export function DiscordCleanModal({
   initialFilterDays,
   initialGhostMode,
   initialIgnorePinned,
+  initialScope,
+  initialKeyword,
+  autoStart,
+  silentMode,
 }: Props) {
   const [step, setStep] = useState<Step>('select_guild');
   const [loading, setLoading] = useState(false);
@@ -242,7 +250,15 @@ export function DiscordCleanModal({
       if (initialIgnorePinned !== undefined) {
         setIgnorePinned(initialIgnorePinned);
       }
-      loadGuilds();
+      if (initialKeyword !== undefined) {
+        setFilterKeyword(initialKeyword);
+      }
+
+      if (autoStart) {
+        runAutoFlow();
+      } else {
+        loadGuilds();
+      }
     } else {
       setStep('select_guild');
       setSelectedGuild(null);
@@ -266,6 +282,126 @@ export function DiscordCleanModal({
       pauseRef.current = false;
     }
   }, [visible, token]);
+
+  // Flux automatique pour l'Auto-Clean (Rétention) sans passer par l'étape manuelle de choix des serveurs
+  const runAutoFlow = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const effFilterDays = initialFilterDays !== undefined ? initialFilterDays : filterDays;
+      const effKeyword = initialKeyword !== undefined ? initialKeyword : filterKeyword;
+      const effGhost = initialGhostMode !== undefined ? initialGhostMode : isGhostModeEnabled;
+      const effIgnorePinned = initialIgnorePinned !== undefined ? initialIgnorePinned : ignorePinned;
+
+      const thresholdDate =
+        effFilterDays === -1
+          ? Date.now() - 60 * 1000
+          : effFilterDays > 0
+          ? Date.now() - effFilterDays * 24 * 60 * 60 * 1000
+          : 0;
+      const lowerKeyword = effKeyword.trim().toLowerCase();
+      const allFound: DiscordMessage[] = [];
+
+      const matchesFiltersLocal = (msg: DiscordMessage) => {
+        if (msg.author.id !== userId) return false;
+        if (effIgnorePinned && msg.pinned) return false;
+        if (thresholdDate > 0) {
+          const msgDate = new Date(msg.timestamp).getTime();
+          if (msgDate > thresholdDate) return false;
+        }
+        if (lowerKeyword && !msg.content.toLowerCase().includes(lowerKeyword)) {
+          return false;
+        }
+        return true;
+      };
+
+      if (initialScope === 'dms') {
+        setLoadingText('Chargement de vos conversations privées (DMs)...');
+        const dms = await getDiscordDirectMessages(token);
+        const formatted = dms.map((d) => ({
+          ...d,
+          name:
+            d.recipients && d.recipients.length > 0
+              ? d.recipients.map((r) => r.username).join(', ')
+              : d.name || 'Conversation privée',
+        }));
+        setSelectedGuild({ id: 'dms', name: 'Messages Privés (DMs)' });
+        setChannels(formatted);
+        const dmsIds = new Set(formatted.map((c) => c.id));
+        setSelectedChannelIds(dmsIds);
+
+        setLoadingText(`Analyse des messages dans vos DMs...`);
+        for (const dm of formatted) {
+          try {
+            const msgs = await getDiscordMessages(token, dm.id);
+            for (const msg of msgs) {
+              if (matchesFiltersLocal(msg)) {
+                allFound.push({ ...msg, channel_name: dm.name });
+              }
+            }
+          } catch (e) {
+            // Ignorer conversation vide
+          }
+        }
+      } else {
+        // guilds ou all
+        setLoadingText('Chargement de vos serveurs Discord...');
+        const gList = await getDiscordGuilds(token);
+        setGuilds(gList);
+        setSelectedGuild({ id: 'all_guilds', name: 'Tous les Serveurs (Global)' });
+        setChannels([]);
+        setSelectedChannelIds(new Set());
+
+        setLoadingText(`Recherche automatique sur ${gList.length} serveurs...`);
+        const BATCH_SIZE = 3;
+        for (let i = 0; i < gList.length; i += BATCH_SIZE) {
+          const batch = gList.slice(i, i + BATCH_SIZE);
+          await Promise.all(
+            batch.map(async (g) => {
+              try {
+                const searchRes = await searchDiscordGuildMessages(token, g.id, {
+                  authorId: userId,
+                  content: lowerKeyword.length >= 3 ? lowerKeyword : undefined,
+                });
+                if (searchRes && Array.isArray(searchRes.messages)) {
+                  for (const msg of searchRes.messages) {
+                    if (matchesFiltersLocal(msg)) {
+                      allFound.push({ ...msg, channel_name: g.name });
+                    }
+                  }
+                }
+              } catch (e) {
+                // Ignorer
+              }
+            })
+          );
+        }
+      }
+
+      setScannedMessages(allFound);
+      const allFoundIds = new Set(allFound.map((m) => m.id));
+      setSelectedMessageIds(allFoundIds);
+      setLoading(false);
+
+      if (allFound.length === 0) {
+        showAlert(
+          'Aucun message trouvé',
+          'Aucun message ne correspond aux critères d’Auto-Clean configurés.',
+          [{ text: 'D’accord', style: 'primary' }],
+          'info'
+        );
+      } else if (silentMode) {
+        // Nettoyage silencieux automatique 100%
+        executeDeletion();
+      } else {
+        // Affiche directement l'aperçu prêt à purger sans repasser par le choix de serveurs
+        setStep('preview_messages');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur exécution Auto-Clean');
+      setLoading(false);
+    }
+  };
 
   // 1. Charger les serveurs
   const loadGuilds = async () => {
