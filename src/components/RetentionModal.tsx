@@ -10,7 +10,6 @@ import {
   ScrollView,
   SafeAreaView,
   Switch,
-  Alert,
   TextInput,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -19,6 +18,7 @@ import { useRetentionStore } from '../store/retentionStore';
 import { useAuthStore } from '../store/authStore';
 import { retentionService } from '../services/retentionService';
 import { cleanNotificationService } from '../services/cleanNotificationService';
+import { CustomAlertModal, CustomAlertButton } from './CustomAlertModal';
 import type { PlatformAccount, RetentionRule } from '../types';
 
 interface RetentionModalProps {
@@ -43,27 +43,25 @@ interface RetentionModalProps {
 }
 
 const RETENTION_PERIODS = [
-  { days: 0, label: '⚡ 1 minute (Test rapide)', desc: 'Purge les messages envoyés il y a plus de 60s', icon: 'flash' },
-  { days: -2, label: '♾️ Tous les messages (Sans limite)', desc: 'Aucune restriction de date, purge tout l’historique', icon: 'infinite-outline' },
-  { days: 1, label: '24 heures', desc: 'Conserve uniquement les messages du jour', icon: 'today-outline' },
-  { days: 7, label: '7 jours (1 semaine)', desc: 'Historique court d’une semaine', icon: 'calendar-outline' },
-  { days: 14, label: '14 jours (2 semaines)', desc: '2 semaines de grâce', icon: 'calendar-outline' },
-  { days: 30, label: '30 jours (1 mois - Recommandé)', desc: 'Garde uniquement le dernier mois', icon: 'calendar-number-outline' },
-  { days: 90, label: '90 jours (3 mois)', desc: 'Historique trimestriel', icon: 'time-outline' },
-  { days: 180, label: '6 mois', desc: 'Historique semestriel', icon: 'time-outline' },
-  { days: 365, label: '1 an (365 jours)', desc: 'Conserve l’année en cours', icon: 'archive-outline' },
+  { days: 1, label: '24 heures', desc: 'Conserve uniquement les messages des dernières 24h', icon: 'today-outline' },
+  { days: 7, label: '7 jours (1 semaine)', desc: 'Conserve les messages de moins d’une semaine', icon: 'calendar-outline' },
+  { days: 14, label: '14 jours (2 semaines)', desc: 'Conserve les messages de moins de 2 semaines', icon: 'calendar-outline' },
+  { days: 30, label: '30 jours (1 mois)', desc: 'Recommandé — conserve le dernier mois', icon: 'calendar-number-outline' },
+  { days: 90, label: '90 jours (3 mois)', desc: 'Conserve les messages du trimestre', icon: 'time-outline' },
+  { days: 180, label: '6 mois', desc: 'Conserve les messages du semestre', icon: 'time-outline' },
+  { days: 365, label: '1 an (365 jours)', desc: 'Conserve les messages de l’année en cours', icon: 'archive-outline' },
+  { days: -2, label: 'Tous les messages', desc: 'Sans limite de date, purge l’ensemble de l’historique', icon: 'infinite-outline' },
 ];
 
-const FREQUENCIES: { id: '1min' | 'daily' | 'weekly' | 'monthly'; label: string; desc: string; icon: string }[] = [
-  { id: '1min', label: '⚡ Dans 1 minute (Test immédiat)', desc: 'Déclenche l’alerte dans 60 secondes chrono !', icon: 'flash-outline' },
-  { id: 'daily', label: 'Quotidien (chaque jour)', desc: 'Vérification automatique chaque matin', icon: 'today-outline' },
-  { id: 'weekly', label: 'Hebdomadaire (Recommandé)', desc: 'Vérification une fois par semaine', icon: 'calendar-outline' },
-  { id: 'monthly', label: 'Mensuel', desc: 'Vérification une fois par mois', icon: 'time-outline' },
+const FREQUENCIES: { id: 'daily' | 'weekly' | 'monthly'; label: string; desc: string; icon: string }[] = [
+  { id: 'daily', label: 'Quotidien', desc: 'Vérification automatique chaque jour', icon: 'today-outline' },
+  { id: 'weekly', label: 'Hebdomadaire (Recommandé)', desc: 'Vérification automatique chaque semaine', icon: 'calendar-outline' },
+  { id: 'monthly', label: 'Mensuel', desc: 'Vérification automatique chaque mois', icon: 'time-outline' },
 ];
 
 const SCOPES: { id: 'all' | 'dms' | 'guilds'; title: string; desc: string; icon: string }[] = [
-  { id: 'all', title: 'Tout le compte (DMs + Serveurs)', desc: 'Nettoyage complet de l’historique', icon: 'globe-outline' },
-  { id: 'dms', title: 'Messages Privés (DMs) seuls', desc: 'Ne touche jamais aux serveurs', icon: 'chatbubbles-outline' },
+  { id: 'all', title: 'Tout le compte', desc: 'Messages privés (DMs) et salons de serveurs', icon: 'globe-outline' },
+  { id: 'dms', title: 'Messages privés (DMs) seuls', desc: 'Ne modifie jamais les serveurs', icon: 'chatbubbles-outline' },
   { id: 'guilds', title: 'Serveurs uniquement', desc: 'Conserve vos conversations privées', icon: 'server-outline' },
 ];
 
@@ -75,6 +73,35 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
   const loadRules = useRetentionStore((s) => s.loadRules);
 
   const [selectedAccountId, setSelectedAccountId] = useState<string>(initialAccountId || '');
+
+  // Dialogue d'alerte personnalisé (100% Cross-Platform iOS & Android)
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type?: 'info' | 'warning' | 'danger' | 'success';
+    icon?: string;
+    buttons: CustomAlertButton[];
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    buttons: [],
+  });
+
+  const showAlert = (
+    title: string,
+    message: string,
+    buttons: CustomAlertButton[],
+    type: 'info' | 'warning' | 'danger' | 'success' = 'info',
+    icon?: string
+  ) => {
+    setAlertConfig({ visible: true, title, message, buttons, type, icon });
+  };
+
+  const closeAlert = () => {
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
+  };
 
   // Rafraîchissement dynamique chaque seconde
   const [, setTick] = useState(0);
@@ -140,14 +167,25 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
   const handleSaveAndSchedule = async () => {
     const targetAccount = currentAccount || accounts[0];
     if (!targetAccount) {
-      Alert.alert('Compte requis', 'Veuillez d’abord connecter un compte dans l’onglet Réseaux.');
+      showAlert(
+        'Compte requis',
+        'Veuillez d’abord connecter un compte dans l’onglet Réseaux.',
+        [
+          {
+            text: 'Compris',
+            style: 'primary',
+            icon: 'checkmark-outline',
+            onPress: closeAlert,
+          },
+        ],
+        'warning',
+        'warning-outline'
+      );
       return;
     }
 
     const intervalMs =
-      activeRule.frequency === '1min'
-        ? 60 * 1000
-        : activeRule.frequency === 'daily'
+      activeRule.frequency === 'daily'
         ? 24 * 3600 * 1000
         : activeRule.frequency === 'weekly'
         ? 7 * 24 * 3600 * 1000
@@ -164,7 +202,7 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
 
     await saveRule(updated);
 
-    // 1. Notification immédiate Notifee sur le téléphone
+    // 1. Notification Notifee sur le téléphone
     await cleanNotificationService.notifyRetentionScheduled({
       platform: targetAccount.platform,
       accountName: targetAccount.displayName || targetAccount.username,
@@ -172,71 +210,108 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
       frequency: activeRule.frequency,
     });
 
-    // 2. Si le test 1 minute a été choisi, planifier le déclenchement dans 60s
-    if (activeRule.frequency === '1min') {
-      setTimeout(() => {
-        cleanNotificationService.notifyRetentionAlert({
-          platform: targetAccount.platform,
-          accountName: targetAccount.displayName || targetAccount.username,
-          expiredCount: 0,
-          retentionDays: activeRule.retentionDays,
-        });
-      }, 60000);
-    }
-
     const freqLabel =
-      activeRule.frequency === '1min'
-        ? 'dans 1 minute (test rapide)'
-        : activeRule.frequency === 'daily'
+      activeRule.frequency === 'daily'
         ? 'chaque jour'
         : activeRule.frequency === 'weekly'
         ? 'chaque semaine'
         : 'chaque mois';
 
-    const daysLabel = activeRule.retentionDays === 0 ? '1 minute (test)' : `${activeRule.retentionDays} jours`;
+    const daysLabel =
+      activeRule.retentionDays === -2
+        ? 'Tous les messages'
+        : activeRule.retentionDays === 1
+        ? '24 heures'
+        : `${activeRule.retentionDays} jours`;
 
-    Alert.alert(
-      '✅ Auto-Clean Planifié !',
-      `Votre règle est active pour ${targetAccount.displayName || targetAccount.username}.\n\n• Délai : Plus de ${daysLabel}\n• Périmètre : ${activeRule.targetScope === 'dms' ? 'DMs seuls' : activeRule.targetScope === 'guilds' ? 'Serveurs seuls' : 'Tout le compte'}\n• Fréquence : ${freqLabel}\n\nUne notification de confirmation a été envoyée sur votre téléphone.`,
+    const scopeLabel =
+      activeRule.targetScope === 'dms'
+        ? 'Messages privés (DMs)'
+        : activeRule.targetScope === 'guilds'
+        ? 'Serveurs uniquement'
+        : 'Tout le compte';
+
+    showAlert(
+      'Auto-Clean configuré',
+      `Votre règle est enregistrée pour ${targetAccount.displayName || targetAccount.username}.\n\n• Délai : Plus de ${daysLabel}\n• Périmètre : ${scopeLabel}\n• Fréquence : ${freqLabel}`,
       [
         {
-          text: 'Compris',
-          onPress: () => onClose(),
+          text: 'Continuer',
+          style: 'primary',
+          icon: 'checkmark-circle-outline',
+          onPress: () => {
+            closeAlert();
+            onClose();
+          },
         },
-      ]
+      ],
+      'success',
+      'shield-checkmark-outline'
     );
   };
 
   const handleDeleteRule = () => {
-    Alert.alert(
-      'Supprimer la règle',
-      'Voulez-vous désactiver l’Auto-Clean et supprimer cette planification ?',
+    showAlert(
+      'Désactiver l’Auto-Clean',
+      'Voulez-vous désactiver l’Auto-Clean et supprimer cette planification pour ce compte ?',
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: 'Annuler', style: 'cancel', icon: 'close-outline', onPress: closeAlert },
         {
           text: 'Supprimer',
           style: 'destructive',
+          icon: 'trash-outline',
           onPress: async () => {
             await deleteRule(activeRule.id);
-            Alert.alert('Règle supprimée', 'L’Auto-Clean a été réinitialisé pour ce compte.');
-            onClose();
+            closeAlert();
+            showAlert(
+              'Règle supprimée',
+              'L’Auto-Clean a été désactivé pour ce compte.',
+              [
+                {
+                  text: 'Fermer',
+                  style: 'primary',
+                  icon: 'checkmark-outline',
+                  onPress: () => {
+                    closeAlert();
+                    onClose();
+                  },
+                },
+              ],
+              'info',
+              'trash-outline'
+            );
           },
         },
-      ]
+      ],
+      'warning',
+      'alert-circle-outline'
     );
   };
 
   const handleImmediateClean = () => {
     const targetAccount = currentAccount || accounts[0];
     if (!targetAccount) {
-      Alert.alert('Compte requis', 'Veuillez d’abord connecter un compte dans l’onglet Réseaux.');
+      showAlert(
+        'Compte requis',
+        'Veuillez d’abord connecter un compte dans l’onglet Réseaux.',
+        [
+          {
+            text: 'Compris',
+            style: 'primary',
+            icon: 'checkmark-outline',
+            onPress: closeAlert,
+          },
+        ],
+        'warning',
+        'warning-outline'
+      );
       return;
     }
 
     if (onTriggerClean) {
       onTriggerClean(
         targetAccount,
-        activeRule.retentionDays === 0 ? -1 : activeRule.retentionDays === -2 ? 0 : activeRule.retentionDays,
+        activeRule.retentionDays === -2 ? 0 : activeRule.retentionDays,
         activeRule.stealthMode,
         activeRule.ignorePinned,
         activeRule.targetScope ?? 'all',
@@ -308,12 +383,12 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
             </View>
             <View style={{ flex: 1, marginHorizontal: 12 }}>
               <Text style={styles.mainCardTitle}>
-                {activeRule.enabled ? '🟢 Règle de rétention active' : '⚪ Auto-Clean désactivé'}
+                {activeRule.enabled ? 'Règle de rétention active' : 'Auto-Clean inactif'}
               </Text>
               <Text style={styles.mainCardDesc}>
                 {activeRule.enabled
                   ? retentionService.formatRuleSummary(activeRule)
-                  : 'Activez pour effacer vos anciens messages automatiquement'}
+                  : 'Activez pour purger vos anciens messages automatiquement'}
               </Text>
             </View>
             <Switch
@@ -562,7 +637,7 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
           <View style={styles.cardBox}>
             <View style={styles.switchOptionRow}>
               <View style={{ flex: 1, marginRight: 8 }}>
-                <Text style={styles.switchOptionTitle}>📎 Pièces jointes uniquement</Text>
+                <Text style={styles.switchOptionTitle}>Pièces jointes et médias</Text>
                 <Text style={styles.switchOptionSub}>
                   Ne cibler que les messages contenant des images, vidéos ou fichiers.
                 </Text>
@@ -578,9 +653,9 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
 
             <View style={styles.switchOptionRow}>
               <View style={{ flex: 1, marginRight: 8 }}>
-                <Text style={styles.switchOptionTitle}>🔗 Liens web uniquement</Text>
+                <Text style={styles.switchOptionTitle}>Liens web (URLs)</Text>
                 <Text style={styles.switchOptionSub}>
-                  Ne cibler que les messages contenant des URLs (http/https).
+                  Ne cibler que les messages contenant des liens web.
                 </Text>
               </View>
               <Switch
@@ -594,9 +669,9 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
 
             <View style={styles.switchOptionRow}>
               <View style={{ flex: 1, marginRight: 8 }}>
-                <Text style={styles.switchOptionTitle}>👻 Mode Furtif (Anti-Logs)</Text>
+                <Text style={styles.switchOptionTitle}>Mode furtif (Anti-logs)</Text>
                 <Text style={styles.switchOptionSub}>
-                  Brouille le contenu avant suppression pour tromper les bots espions.
+                  Remplace le contenu par un point avant suppression pour masquer l'historique.
                 </Text>
               </View>
               <Switch
@@ -610,9 +685,9 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
 
             <View style={styles.switchOptionRow}>
               <View style={{ flex: 1, marginRight: 8 }}>
-                <Text style={styles.switchOptionTitle}>📌 Conserver les messages épinglés</Text>
+                <Text style={styles.switchOptionTitle}>Conserver les messages épinglés</Text>
                 <Text style={styles.switchOptionSub}>
-                  Ne jamais purger les messages importants ou annonces épinglés.
+                  Préserve les annonces et messages importants épinglés.
                 </Text>
               </View>
               <Switch
@@ -626,7 +701,7 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
 
             <View style={styles.switchOptionRow}>
               <View style={{ flex: 1, marginRight: 8 }}>
-                <Text style={styles.switchOptionTitle}>⭐ Nettoyer les réactions emojis</Text>
+                <Text style={styles.switchOptionTitle}>Supprimer mes réactions emojis</Text>
                 <Text style={styles.switchOptionSub}>
                   Retire également vos réactions posées sur les messages.
                 </Text>
@@ -642,9 +717,9 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
 
             <View style={styles.switchOptionRow}>
               <View style={{ flex: 1, marginRight: 8 }}>
-                <Text style={styles.switchOptionTitle}>🚪 Fermer les DMs nettoyés</Text>
+                <Text style={styles.switchOptionTitle}>Fermer les conversations vidées</Text>
                 <Text style={styles.switchOptionSub}>
-                  Masque et clôture les conversations privées une fois vidées.
+                  Masque et clôture les conversations privées (DMs) une fois vidées.
                 </Text>
               </View>
               <Switch
@@ -660,7 +735,7 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>6. Mode d'exécution</Text>
           <Text style={styles.sectionSubtitle}>
-            Choisissez si Cleanly doit vous demander validation ou agir silencieusement.
+            Choisissez si Cleanly doit vous notifier pour confirmation ou agir en arrière-plan.
           </Text>
           <View style={styles.execModeContainer}>
             <TouchableOpacity
@@ -704,7 +779,7 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
             >
               <View style={styles.execModeHeader}>
                 <Ionicons
-                  name="flash-outline"
+                  name="shield-checkmark-outline"
                   size={18}
                   color={activeRule.executionMode === 'auto_background' ? '#10B981' : theme.text.muted}
                 />
@@ -714,14 +789,14 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
                     activeRule.executionMode === 'auto_background' && { color: '#10B981', fontWeight: '700' },
                   ]}
                 >
-                  🤖 100% Silencieux
+                  Mode silencieux
                 </Text>
                 {activeRule.executionMode === 'auto_background' && (
                   <Ionicons name="checkmark-circle" size={18} color="#10B981" style={{ marginLeft: 'auto' }} />
                 )}
               </View>
               <Text style={styles.execModeDesc}>
-                Purge automatique discrète dès l’échéance sans vous interrompre.
+                Purge automatique discrète dès l’échéance sans interruption.
               </Text>
             </TouchableOpacity>
           </View>
@@ -729,29 +804,29 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
 
         {/* Boutons d'action */}
         <View style={styles.bottomSection}>
-          {/* Bouton principal vert : Sauvegarder et Armer la planification */}
+          {/* Bouton principal vert : Enregistrer la règle */}
           <TouchableOpacity
             style={styles.saveAndScheduleBtn}
             onPress={handleSaveAndSchedule}
             activeOpacity={0.85}
           >
             <Ionicons name="shield-checkmark" size={20} color="#FFF" style={{ marginRight: 8 }} />
-            <Text style={styles.saveAndScheduleBtnText}>Sauvegarder & Armer la planification</Text>
+            <Text style={styles.saveAndScheduleBtnText}>Enregistrer la règle</Text>
           </TouchableOpacity>
 
-          {/* Bouton secondaire violet : Test de purge manuelle immédiate */}
+          {/* Bouton secondaire violet : Purge immédiate */}
           <TouchableOpacity
             style={styles.actionCleanNowBtnOutline}
             onPress={handleImmediateClean}
             activeOpacity={0.75}
           >
-            <Ionicons name="flash-outline" size={16} color="#5865F2" style={{ marginRight: 6 }} />
+            <Ionicons name="play-outline" size={16} color="#5865F2" style={{ marginRight: 6 }} />
             <Text style={styles.actionCleanNowBtnOutlineText}>
-              Tester une purge manuelle tout de suite (Optionnel)
+              Exécuter une purge maintenant
             </Text>
           </TouchableOpacity>
 
-          {/* Bouton rouge : Supprimer la règle et réinitialiser */}
+          {/* Bouton rouge : Supprimer la règle */}
           {existingRule && (
             <TouchableOpacity
               style={styles.deleteRuleBtn}
@@ -759,13 +834,24 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
               activeOpacity={0.7}
             >
               <Ionicons name="trash-outline" size={15} color="#EF4444" style={{ marginRight: 6 }} />
-              <Text style={styles.deleteRuleBtnText}>Supprimer cette règle d’Auto-Clean</Text>
+              <Text style={styles.deleteRuleBtnText}>Supprimer cette règle</Text>
             </TouchableOpacity>
           )}
         </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Dialogue d'alerte personnalisé (100% Cross-Platform iOS & Android) */}
+      <CustomAlertModal
+        visible={alertConfig.visible}
+        type={alertConfig.type}
+        icon={alertConfig.icon}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onClose={closeAlert}
+      />
     </SafeAreaView>
   );
 

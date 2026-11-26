@@ -92,45 +92,39 @@ function getGuildIconUrl(guildId?: string, iconHash?: string | null): string | n
 
 const DATE_FILTER_OPTIONS = [
   {
-    days: -1,
-    title: '⚡ Plus de 1 minute (Test rapide)',
-    desc: 'Messages envoyés il y a plus de 60 secondes',
-    icon: 'flash-outline',
-  },
-  {
     days: 0,
     title: 'Tous les messages',
-    desc: 'Aucune limite de date, supprime tout l’historique',
+    desc: 'Sans limite de date, supprime l’ensemble de l’historique',
     icon: 'infinite-outline',
   },
   {
     days: 1,
     title: 'Plus de 24 heures',
-    desc: 'Messages envoyés il y a plus d’un jour',
+    desc: 'Messages envoyés il y a plus d’une journée',
     icon: 'today-outline',
   },
   {
     days: 7,
     title: 'Plus de 7 jours',
-    desc: 'Messages de plus d’une semaine',
+    desc: 'Messages envoyés il y a plus d’une semaine',
     icon: 'calendar-outline',
   },
   {
     days: 30,
     title: 'Plus de 30 jours (1 mois)',
-    desc: 'Messages de plus d’un mois',
+    desc: 'Messages envoyés il y a plus d’un mois',
     icon: 'calendar-number-outline',
   },
   {
     days: 90,
     title: 'Plus de 90 jours (3 mois)',
-    desc: 'Messages de plus d’un trimestre',
+    desc: 'Messages envoyés il y a plus d’un trimestre',
     icon: 'time-outline',
   },
   {
     days: 365,
     title: 'Plus de 1 an',
-    desc: 'Anciennes traces de plus d’une année',
+    desc: 'Messages datant de plus d’une année',
     icon: 'archive-outline',
   },
 ];
@@ -356,15 +350,6 @@ export function DiscordCleanModal({
         if (effIgnorePinned && msg.pinned) return false;
         if (thresholdDate > 0) {
           const msgDate = new Date(msg.timestamp).getTime();
-          console.log('[Cleanly Debug Auto Date]', {
-            content: msg.content,
-            rawTimestamp: msg.timestamp,
-            msgDate,
-            now: Date.now(),
-            thresholdDate,
-            diffHours: (Date.now() - msgDate) / (1000 * 3600),
-            isFilteredOut: msgDate > thresholdDate,
-          });
           if (msgDate > thresholdDate) return false;
         }
         if (lowerKeyword && !msg.content.toLowerCase().includes(lowerKeyword)) {
@@ -508,10 +493,10 @@ export function DiscordCleanModal({
         setStep('filter_options');
         showAlert(
           'Aucun message trouvé',
-          'Aucun message ne correspond à vos critères d’Auto-Clean.\n\nAstuce : Si vos messages sont récents, choisissez l’option « ⚡ 1 minute » ou « ♾️ Tous les messages ».',
+          'Aucun message ne correspond aux filtres définis pour cet espace.\n\nVous pouvez ajuster les critères de date ou afficher tous les messages.',
           [
             {
-              text: 'Voir les salons manuellement',
+              text: 'Modifier les filtres',
               style: 'primary',
               onPress: () => {
                 loadGuilds();
@@ -519,7 +504,7 @@ export function DiscordCleanModal({
               },
             },
             {
-              text: 'Désactiver le filtre de date (Tous)',
+              text: 'Afficher tous les messages',
               style: 'default',
               onPress: () => {
                 setFilterDays(0);
@@ -709,28 +694,10 @@ export function DiscordCleanModal({
         msg.author?.id === userId ||
         (userId.startsWith('discord_') && msg.author?.id === userId.replace('discord_', ''));
 
-      console.log('[Cleanly Msg Examined]', {
-        content: msg.content,
-        author: msg.author?.username,
-        authorId: msg.author?.id,
-        targetAuthorId,
-        isAuthor,
-        timestamp: msg.timestamp,
-      });
-
       if (!isAuthor) return false;
       if (ignorePinned && msg.pinned) return false;
       if (thresholdDate > 0) {
         const msgDate = new Date(msg.timestamp).getTime();
-        console.log('[Cleanly Debug Date]', {
-          content: msg.content,
-          rawTimestamp: msg.timestamp,
-          msgDate,
-          now: Date.now(),
-          thresholdDate,
-          diffHours: (Date.now() - msgDate) / (1000 * 3600),
-          isFilteredOut: msgDate > thresholdDate,
-        });
         if (msgDate > thresholdDate) return false;
       }
       if (lowerKeyword && !msg.content.toLowerCase().includes(lowerKeyword)) {

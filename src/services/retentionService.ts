@@ -69,7 +69,7 @@ export class RetentionService {
   formatRuleSummary(rule: RetentionRule): string {
     const periodMap: Record<number, string> = {
       '-2': 'Tous les messages',
-      0: '1 min (test)',
+      1: '24 heures',
       7: '1 semaine',
       14: '2 semaines',
       30: '1 mois',
@@ -80,21 +80,20 @@ export class RetentionService {
     const periodStr = periodMap[rule.retentionDays] ?? `${rule.retentionDays} jours`;
 
     const freqMap: Record<string, string> = {
-      '1min': 'dans 1 min (test)',
-      daily: 'chaque jour',
-      weekly: 'chaque semaine',
-      monthly: 'chaque mois',
+      daily: 'Chaque jour',
+      weekly: 'Chaque semaine',
+      monthly: 'Chaque mois',
     };
     const freqStr = freqMap[rule.frequency] ?? rule.frequency;
 
     const scopeMap: Record<string, string> = {
-      all: 'DMs + Serveurs',
-      dms: 'DMs seuls',
-      guilds: 'Serveurs',
+      all: 'Tout le compte',
+      dms: 'DMs uniquement',
+      guilds: 'Serveurs uniquement',
     };
-    const scopeStr = scopeMap[rule.targetScope ?? 'all'] ?? 'DMs + Serveurs';
+    const scopeStr = scopeMap[rule.targetScope ?? 'all'] ?? 'Tout le compte';
 
-    return `Garder ${periodStr} max • ${scopeStr} • ${freqStr}`;
+    return `Purger > ${periodStr} • ${scopeStr} • ${freqStr}`;
   }
 }
 

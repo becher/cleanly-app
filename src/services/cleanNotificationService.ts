@@ -344,12 +344,17 @@ class CleanNotificationService {
     try {
       await this.initNotificationChannels();
       const config = getPlatformConfig(platform);
-      const daysText = retentionDays === 0 ? '1 minute' : `${retentionDays} jours`;
+      const daysText =
+        retentionDays === -2
+          ? 'Tous les messages'
+          : retentionDays === 1
+          ? '24 heures'
+          : `${retentionDays} jours`;
 
       await notifee.displayNotification({
         id: `retention_${platform}`,
-        title: `🛡️ Cleanly Auto-Clean : Purge planifiée prête !`,
-        body: `${accountName} dépasse votre règle de rétention (${daysText}). Touchez pour nettoyer.`,
+        title: `Auto-Clean ${config.displayName} : purge prête`,
+        body: `Des messages de ${accountName} dépassent votre règle de rétention (${daysText}). Touchez pour exécuter.`,
         android: {
           channelId: 'cleanly_retention',
           color: config.brandColor,
@@ -380,13 +385,23 @@ class CleanNotificationService {
     try {
       await this.initNotificationChannels();
       const config = getPlatformConfig(platform);
-      const daysText = retentionDays === 0 ? '1 minute' : `${retentionDays} jours`;
-      const freqText = frequency === '1min' ? 'dans 1 minute (test)' : frequency === 'daily' ? 'chaque jour' : frequency === 'weekly' ? 'chaque semaine' : 'chaque mois';
+      const daysText =
+        retentionDays === -2
+          ? 'Tous les messages'
+          : retentionDays === 1
+          ? '24 heures'
+          : `${retentionDays} jours`;
+      const freqText =
+        frequency === 'daily'
+          ? 'quotidien'
+          : frequency === 'weekly'
+          ? 'hebdomadaire'
+          : 'mensuel';
 
       await notifee.displayNotification({
         id: `retention_scheduled_${platform}`,
-        title: `🛡️ Auto-Clean ${config.displayName} activé !`,
-        body: `Règle de rétention armée pour ${accountName} (> ${daysText}). Prochain passage : ${freqText}.`,
+        title: `Auto-Clean ${config.displayName} programmé`,
+        body: `Règle active pour ${accountName} (> ${daysText}) • Passage : ${freqText}.`,
         android: {
           channelId: 'cleanly_retention',
           color: config.brandColor,
