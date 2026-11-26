@@ -8,10 +8,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   Switch,
   TextInput,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { theme, PLATFORM_COLORS } from '../constants/theme';
 import { useRetentionStore } from '../store/retentionStore';
