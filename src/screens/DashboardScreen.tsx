@@ -50,6 +50,10 @@ export function DashboardScreen() {
   const [retentionKeyword, setRetentionKeyword] = useState<string | undefined>(undefined);
   const [retentionAutoStart, setRetentionAutoStart] = useState<boolean>(false);
   const [retentionSilentMode, setRetentionSilentMode] = useState<boolean>(false);
+  const [retentionOnlyAttachments, setRetentionOnlyAttachments] = useState<boolean | undefined>(undefined);
+  const [retentionOnlyLinks, setRetentionOnlyLinks] = useState<boolean | undefined>(undefined);
+  const [retentionCleanReactions, setRetentionCleanReactions] = useState<boolean | undefined>(undefined);
+  const [retentionAutoCloseDMs, setRetentionAutoCloseDMs] = useState<boolean | undefined>(undefined);
 
   const retentionRules = useRetentionStore((s) => s.rules);
   const anyActiveRule = retentionRules.find((r) => r.enabled);
@@ -86,13 +90,17 @@ export function DashboardScreen() {
             await useRetentionStore.getState().updateRuleLastRun(rule.id, 0);
             handleClean(
               account,
-              rule.retentionDays === 0 ? -1 : rule.retentionDays,
+              rule.retentionDays === 0 ? -1 : rule.retentionDays === -2 ? 0 : rule.retentionDays,
               rule.stealthMode,
               rule.ignorePinned,
               rule.targetScope,
               rule.keyword,
               true, // autoStart
-              true  // silentMode
+              true, // silentMode
+              rule.onlyWithAttachments,
+              rule.onlyWithLinks,
+              rule.cleanReactions,
+              rule.autoCloseDMs
             );
           } else {
             // Mode avec confirmation : demande validation
@@ -114,13 +122,17 @@ export function DashboardScreen() {
                     useRetentionStore.getState().updateRuleLastRun(rule.id, 0);
                     handleClean(
                       account,
-                      rule.retentionDays === 0 ? -1 : rule.retentionDays,
+                      rule.retentionDays === 0 ? -1 : rule.retentionDays === -2 ? 0 : rule.retentionDays,
                       rule.stealthMode,
                       rule.ignorePinned,
                       rule.targetScope,
                       rule.keyword,
                       true, // autoStart direct
-                      false // silentMode
+                      false, // silentMode
+                      rule.onlyWithAttachments,
+                      rule.onlyWithLinks,
+                      rule.cleanReactions,
+                      rule.autoCloseDMs
                     );
                   },
                 },
@@ -144,7 +156,11 @@ export function DashboardScreen() {
     scope?: 'all' | 'dms' | 'guilds',
     keyword?: string,
     autoStart: boolean = false,
-    silentMode: boolean = false
+    silentMode: boolean = false,
+    onlyWithAttachments?: boolean,
+    onlyWithLinks?: boolean,
+    cleanReactions?: boolean,
+    autoCloseDMs?: boolean
   ) => {
     setRetentionCleanDays(days);
     setRetentionGhostMode(stealthMode);
@@ -153,6 +169,10 @@ export function DashboardScreen() {
     setRetentionKeyword(keyword);
     setRetentionAutoStart(autoStart);
     setRetentionSilentMode(silentMode);
+    setRetentionOnlyAttachments(onlyWithAttachments);
+    setRetentionOnlyLinks(onlyWithLinks);
+    setRetentionCleanReactions(cleanReactions);
+    setRetentionAutoCloseDMs(autoCloseDMs);
 
     if (account.platform === 'discord') {
       setCleaningAccount(account);
@@ -174,10 +194,10 @@ export function DashboardScreen() {
             setShowRetentionView(false);
             setSelectedRetentionAccountId(undefined);
           }}
-          onTriggerClean={(acc, days, stealth, pinned, scope, keyword, autoStart, silentMode) => {
+          onTriggerClean={(acc, days, stealth, pinned, scope, keyword, autoStart, silentMode, onlyAttachments, onlyLinks, cleanReactions, autoCloseDMs) => {
             setShowRetentionView(false);
             setSelectedRetentionAccountId(undefined);
-            handleClean(acc, days, stealth, pinned, scope, keyword, autoStart, silentMode);
+            handleClean(acc, days, stealth, pinned, scope, keyword, autoStart, silentMode, onlyAttachments, onlyLinks, cleanReactions, autoCloseDMs);
           }}
         />
       ) : (
@@ -274,13 +294,17 @@ export function DashboardScreen() {
                           }
                           handleClean(
                             account,
-                            rule?.retentionDays === 0 ? -1 : rule?.retentionDays,
+                            rule?.retentionDays === 0 ? -1 : rule?.retentionDays === -2 ? 0 : rule?.retentionDays,
                             rule?.stealthMode,
                             rule?.ignorePinned,
                             rule?.targetScope,
                             rule?.keyword,
                             true, // autoStart direct
-                            rule?.executionMode === 'auto_background'
+                            rule?.executionMode === 'auto_background',
+                            rule?.onlyWithAttachments,
+                            rule?.onlyWithLinks,
+                            rule?.cleanReactions,
+                            rule?.autoCloseDMs
                           );
                         },
                       },
@@ -353,6 +377,10 @@ export function DashboardScreen() {
           initialKeyword={retentionKeyword}
           autoStart={retentionAutoStart}
           silentMode={retentionSilentMode}
+          initialOnlyAttachments={retentionOnlyAttachments}
+          initialOnlyLinks={retentionOnlyLinks}
+          initialCleanReactions={retentionCleanReactions}
+          initialAutoCloseDMs={retentionAutoCloseDMs}
           onClose={() => {
             setCleaningAccount(null);
             setRetentionCleanDays(undefined);
@@ -362,6 +390,10 @@ export function DashboardScreen() {
             setRetentionKeyword(undefined);
             setRetentionAutoStart(false);
             setRetentionSilentMode(false);
+            setRetentionOnlyAttachments(undefined);
+            setRetentionOnlyLinks(undefined);
+            setRetentionCleanReactions(undefined);
+            setRetentionAutoCloseDMs(undefined);
           }}
           onFinished={(count) => {
             loadHistory();

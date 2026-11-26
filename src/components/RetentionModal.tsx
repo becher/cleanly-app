@@ -32,7 +32,11 @@ interface RetentionModalProps {
     targetScope?: 'all' | 'dms' | 'guilds',
     keyword?: string,
     autoStart?: boolean,
-    silentMode?: boolean
+    silentMode?: boolean,
+    onlyWithAttachments?: boolean,
+    onlyWithLinks?: boolean,
+    cleanReactions?: boolean,
+    autoCloseDMs?: boolean
   ) => void;
   embedded?: boolean;
   initialAccountId?: string;
@@ -40,6 +44,7 @@ interface RetentionModalProps {
 
 const RETENTION_PERIODS = [
   { days: 0, label: '⚡ 1 minute (Test rapide)', desc: 'Purge les messages envoyés il y a plus de 60s', icon: 'flash' },
+  { days: -2, label: '♾️ Tous les messages (Sans limite)', desc: 'Aucune restriction de date, purge tout l’historique', icon: 'infinite-outline' },
   { days: 1, label: '24 heures', desc: 'Conserve uniquement les messages du jour', icon: 'today-outline' },
   { days: 7, label: '7 jours (1 semaine)', desc: 'Historique court d’une semaine', icon: 'calendar-outline' },
   { days: 14, label: '14 jours (2 semaines)', desc: '2 semaines de grâce', icon: 'calendar-outline' },
@@ -231,13 +236,17 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
     if (onTriggerClean) {
       onTriggerClean(
         targetAccount,
-        activeRule.retentionDays === 0 ? -1 : activeRule.retentionDays,
+        activeRule.retentionDays === 0 ? -1 : activeRule.retentionDays === -2 ? 0 : activeRule.retentionDays,
         activeRule.stealthMode,
         activeRule.ignorePinned,
         activeRule.targetScope ?? 'all',
         activeRule.keyword,
         true,
-        activeRule.executionMode === 'auto_background'
+        activeRule.executionMode === 'auto_background',
+        activeRule.onlyWithAttachments,
+        activeRule.onlyWithLinks,
+        activeRule.cleanReactions,
+        activeRule.autoCloseDMs
       );
     }
   };
@@ -547,15 +556,47 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
           </View>
         </View>
 
-        {/* 5. Protections avancées */}
+        {/* 5. Filtres de contenu & Protections avancées */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>5. Protections avancées</Text>
+          <Text style={styles.sectionTitle}>5. Filtres de contenu & Protections</Text>
           <View style={styles.cardBox}>
+            <View style={styles.switchOptionRow}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={styles.switchOptionTitle}>📎 Pièces jointes uniquement</Text>
+                <Text style={styles.switchOptionSub}>
+                  Ne cibler que les messages contenant des images, vidéos ou fichiers.
+                </Text>
+              </View>
+              <Switch
+                value={activeRule.onlyWithAttachments ?? false}
+                onValueChange={(val) => handleUpdate({ onlyWithAttachments: val })}
+                trackColor={{ true: '#5865F2', false: theme.bg.raised }}
+              />
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.switchOptionRow}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={styles.switchOptionTitle}>🔗 Liens web uniquement</Text>
+                <Text style={styles.switchOptionSub}>
+                  Ne cibler que les messages contenant des URLs (http/https).
+                </Text>
+              </View>
+              <Switch
+                value={activeRule.onlyWithLinks ?? false}
+                onValueChange={(val) => handleUpdate({ onlyWithLinks: val })}
+                trackColor={{ true: '#5865F2', false: theme.bg.raised }}
+              />
+            </View>
+
+            <View style={styles.divider} />
+
             <View style={styles.switchOptionRow}>
               <View style={{ flex: 1, marginRight: 8 }}>
                 <Text style={styles.switchOptionTitle}>👻 Mode Furtif (Anti-Logs)</Text>
                 <Text style={styles.switchOptionSub}>
-                  Brouille le contenu avant suppression pour éviter les captures de bots espions.
+                  Brouille le contenu avant suppression pour tromper les bots espions.
                 </Text>
               </View>
               <Switch
@@ -577,6 +618,38 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
               <Switch
                 value={activeRule.ignorePinned}
                 onValueChange={(val) => handleUpdate({ ignorePinned: val })}
+                trackColor={{ true: '#5865F2', false: theme.bg.raised }}
+              />
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.switchOptionRow}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={styles.switchOptionTitle}>⭐ Nettoyer les réactions emojis</Text>
+                <Text style={styles.switchOptionSub}>
+                  Retire également vos réactions posées sur les messages.
+                </Text>
+              </View>
+              <Switch
+                value={activeRule.cleanReactions ?? true}
+                onValueChange={(val) => handleUpdate({ cleanReactions: val })}
+                trackColor={{ true: '#5865F2', false: theme.bg.raised }}
+              />
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.switchOptionRow}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={styles.switchOptionTitle}>🚪 Fermer les DMs nettoyés</Text>
+                <Text style={styles.switchOptionSub}>
+                  Masque et clôture les conversations privées une fois vidées.
+                </Text>
+              </View>
+              <Switch
+                value={activeRule.autoCloseDMs ?? false}
+                onValueChange={(val) => handleUpdate({ autoCloseDMs: val })}
                 trackColor={{ true: '#5865F2', false: theme.bg.raised }}
               />
             </View>

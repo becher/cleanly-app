@@ -55,6 +55,10 @@ type Props = {
   initialKeyword?: string;
   autoStart?: boolean;
   silentMode?: boolean;
+  initialOnlyAttachments?: boolean;
+  initialOnlyLinks?: boolean;
+  initialCleanReactions?: boolean;
+  initialAutoCloseDMs?: boolean;
 };
 
 type Step =
@@ -164,6 +168,10 @@ export function DiscordCleanModal({
   initialKeyword,
   autoStart,
   silentMode,
+  initialOnlyAttachments,
+  initialOnlyLinks,
+  initialCleanReactions,
+  initialAutoCloseDMs,
 }: Props) {
   const [step, setStep] = useState<Step>('select_guild');
   const [loading, setLoading] = useState(false);
@@ -288,10 +296,31 @@ export function DiscordCleanModal({
     setLoading(true);
     setError(null);
     try {
+      // 1. Résolution de l'ID utilisateur exact pour éviter tout mismatch
+      let targetUserId = userId;
+      try {
+        const meRes = await fetch('https://discord.com/api/v9/users/@me', {
+          headers: { Authorization: token },
+        });
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          if (meData?.id) targetUserId = meData.id;
+        }
+      } catch (e) {
+        // Fallback sur userId
+      }
+
       const effFilterDays = initialFilterDays !== undefined ? initialFilterDays : filterDays;
       const effKeyword = initialKeyword !== undefined ? initialKeyword : filterKeyword;
       const effGhost = initialGhostMode !== undefined ? initialGhostMode : isGhostModeEnabled;
       const effIgnorePinned = initialIgnorePinned !== undefined ? initialIgnorePinned : ignorePinned;
+      const effOnlyAttachments = initialOnlyAttachments !== undefined ? initialOnlyAttachments : onlyWithAttachments;
+      const effOnlyLinks = initialOnlyLinks !== undefined ? initialOnlyLinks : onlyWithLinks;
+
+      if (effOnlyAttachments) setOnlyWithAttachments(true);
+      if (effOnlyLinks) setOnlyWithLinks(true);
+      if (initialCleanReactions !== undefined) setIsCleanReactionsEnabled(initialCleanReactions);
+      if (initialAutoCloseDMs !== undefined) setAutoCloseDMs(initialAutoCloseDMs);
 
       const thresholdDate =
         effFilterDays === -1
@@ -300,10 +329,12 @@ export function DiscordCleanModal({
           ? Date.now() - effFilterDays * 24 * 60 * 60 * 1000
           : 0;
       const lowerKeyword = effKeyword.trim().toLowerCase();
+      const linkRegex = /(https?:\/\/[^\s]+)/g;
       const allFound: DiscordMessage[] = [];
 
       const matchesFiltersLocal = (msg: DiscordMessage) => {
-        if (msg.author.id !== userId) return false;
+        const isAuthor = msg.author?.id === targetUserId || msg.author?.id === userId;
+        if (!isAuthor) return false;
         if (effIgnorePinned && msg.pinned) return false;
         if (thresholdDate > 0) {
           const msgDate = new Date(msg.timestamp).getTime();
@@ -312,69 +343,115 @@ export function DiscordCleanModal({
         if (lowerKeyword && !msg.content.toLowerCase().includes(lowerKeyword)) {
           return false;
         }
+        if (effOnlyAttachments && (!msg.attachments || msg.attachments.length === 0)) {
+          return false;
+        }
+        if (effOnlyLinks && !linkRegex.test(msg.content)) {
+          return false;
+        }
         return true;
       };
 
-      if (initialScope === 'dms') {
+      const shouldScanDMs = initialScope === 'dms' || initialScope === 'all' || !initialScope;
+      const shouldScanGuilds = initialScope === 'guilds' || initialScope === 'all' || !initialScope;
+
+      // A. SCAN DES MESSAGES PRIVÉS (DMs)
+      if (shouldScanDMs) {
         setLoadingText('Chargement de vos conversations privées (DMs)...');
-        const dms = await getDiscordDirectMessages(token);
-        const formatted = dms.map((d) => ({
-          ...d,
-          name:
-            d.recipients && d.recipients.length > 0
-              ? d.recipients.map((r) => r.username).join(', ')
-              : d.name || 'Conversation privée',
-        }));
-        setSelectedGuild({ id: 'dms', name: 'Messages Privés (DMs)' });
-        setChannels(formatted);
-        const dmsIds = new Set(formatted.map((c) => c.id));
-        setSelectedChannelIds(dmsIds);
+        try {
+          const dms = await getDiscordDirectMessages(token);
+          const formatted = dms.map((d) => ({
+            ...d,
+            name:
+              d.recipients && d.recipients.length > 0
+                ? d.recipients.map((r) => r.username).join(', ')
+                : d.name || 'Conversation privée',
+          }));
 
-        setLoadingText(`Analyse des messages dans vos DMs...`);
-        for (const dm of formatted) {
-          try {
-            const msgs = await getDiscordMessages(token, dm.id);
-            for (const msg of msgs) {
-              if (matchesFiltersLocal(msg)) {
-                allFound.push({ ...msg, channel_name: dm.name });
-              }
-            }
-          } catch (e) {
-            // Ignorer conversation vide
+          if (initialScope === 'dms') {
+            setSelectedGuild({ id: 'dms', name: 'Messages Privés (DMs)' });
+            setChannels(formatted);
+            setSelectedChannelIds(new Set(formatted.map((c) => c.id)));
           }
-        }
-      } else {
-        // guilds ou all
-        setLoadingText('Chargement de vos serveurs Discord...');
-        const gList = await getDiscordGuilds(token);
-        setGuilds(gList);
-        setSelectedGuild({ id: 'all_guilds', name: 'Tous les Serveurs (Global)' });
-        setChannels([]);
-        setSelectedChannelIds(new Set());
 
-        setLoadingText(`Recherche automatique sur ${gList.length} serveurs...`);
-        const BATCH_SIZE = 3;
-        for (let i = 0; i < gList.length; i += BATCH_SIZE) {
-          const batch = gList.slice(i, i + BATCH_SIZE);
-          await Promise.all(
-            batch.map(async (g) => {
-              try {
-                const searchRes = await searchDiscordGuildMessages(token, g.id, {
-                  authorId: userId,
-                  content: lowerKeyword.length >= 3 ? lowerKeyword : undefined,
-                });
-                if (searchRes && Array.isArray(searchRes.messages)) {
-                  for (const msg of searchRes.messages) {
+          setLoadingText(`Analyse des messages dans ${formatted.length} conversations privées...`);
+          const BATCH_SIZE = 4;
+          for (let i = 0; i < formatted.length; i += BATCH_SIZE) {
+            const batch = formatted.slice(i, i + BATCH_SIZE);
+            await Promise.all(
+              batch.map(async (dm) => {
+                try {
+                  const msgs = await getDiscordMessages(token, dm.id);
+                  for (const msg of msgs) {
                     if (matchesFiltersLocal(msg)) {
-                      allFound.push({ ...msg, channel_name: g.name });
+                      allFound.push({ ...msg, channel_name: dm.name });
                     }
                   }
+                } catch (e) {
+                  // Ignorer DM inaccessible
                 }
-              } catch (e) {
-                // Ignorer
-              }
-            })
-          );
+              })
+            );
+            setLoadingText(`Analyse DMs : ${allFound.length} message(s) trouvé(s)...`);
+          }
+        } catch (e) {
+          console.warn('Erreur chargement DMs:', e);
+        }
+      }
+
+      // B. SCAN DES SERVEURS DISCORD
+      if (shouldScanGuilds) {
+        setLoadingText('Chargement de vos serveurs Discord...');
+        try {
+          const gList = await getDiscordGuilds(token);
+          setGuilds(gList);
+          setSelectedGuild({ id: 'all_guilds', name: 'Tous les Serveurs (Global)' });
+
+          setLoadingText(`Recherche sur ${gList.length} serveurs...`);
+          const BATCH_SIZE = 3;
+          for (let i = 0; i < gList.length; i += BATCH_SIZE) {
+            const batch = gList.slice(i, i + BATCH_SIZE);
+            await Promise.all(
+              batch.map(async (g) => {
+                try {
+                  let searchRes = await searchDiscordGuildMessages(token, g.id, {
+                    authorId: targetUserId,
+                    content: lowerKeyword.length >= 3 ? lowerKeyword : undefined,
+                    has: effOnlyAttachments ? 'file' : effOnlyLinks ? 'link' : undefined,
+                  });
+
+                  if (searchRes && Array.isArray(searchRes.messages) && searchRes.messages.length > 0) {
+                    for (const msg of searchRes.messages) {
+                      if (matchesFiltersLocal(msg)) {
+                        allFound.push({ ...msg, channel_name: g.name });
+                      }
+                    }
+                  } else {
+                    // Fallback scan direct des salons textuels si l'API Fast Search ne renvoie rien
+                    try {
+                      const chs = await getDiscordChannels(token, g.id);
+                      const textChannels = chs.filter((c) => c.type === 0).slice(0, 5); // 5 premiers salons
+                      for (const ch of textChannels) {
+                        const msgs = await getDiscordMessages(token, ch.id);
+                        for (const msg of msgs) {
+                          if (matchesFiltersLocal(msg)) {
+                            allFound.push({ ...msg, channel_name: `${g.name} #${ch.name}` });
+                          }
+                        }
+                      }
+                    } catch (e) {
+                      // Ignorer si pas de permissions sur les salons
+                    }
+                  }
+                } catch (e) {
+                  // Ignorer serveur inaccessible
+                }
+              })
+            );
+            setLoadingText(`Analyse serveurs : ${allFound.length} message(s) trouvé(s)...`);
+          }
+        } catch (e) {
+          console.warn('Erreur scan serveurs:', e);
         }
       }
 
@@ -384,10 +461,28 @@ export function DiscordCleanModal({
       setLoading(false);
 
       if (allFound.length === 0) {
+        setStep('filter_options');
         showAlert(
           'Aucun message trouvé',
-          'Aucun message ne correspond aux critères d’Auto-Clean configurés.',
-          [{ text: 'D’accord', style: 'primary' }],
+          'Aucun message ne correspond à vos critères d’Auto-Clean.\n\nAstuce : Si vos messages sont récents, choisissez l’option « ⚡ 1 minute » ou « ♾️ Tous les messages ».',
+          [
+            {
+              text: 'Voir les salons manuellement',
+              style: 'primary',
+              onPress: () => {
+                loadGuilds();
+                setStep('select_guild');
+              },
+            },
+            {
+              text: 'Désactiver le filtre de date (Tous)',
+              style: 'default',
+              onPress: () => {
+                setFilterDays(0);
+                handleStartScan();
+              },
+            },
+          ],
           'info'
         );
       } else if (silentMode) {

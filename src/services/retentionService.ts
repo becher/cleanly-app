@@ -68,6 +68,7 @@ export class RetentionService {
    */
   formatRuleSummary(rule: RetentionRule): string {
     const periodMap: Record<number, string> = {
+      '-2': 'Tous les messages',
       0: '1 min (test)',
       7: '1 semaine',
       14: '2 semaines',

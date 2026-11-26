@@ -95,6 +95,10 @@ export interface RetentionRule {
   stealthMode: boolean;
   ignorePinned: boolean;
   keyword?: string;
+  onlyWithAttachments?: boolean;
+  onlyWithLinks?: boolean;
+  cleanReactions?: boolean;
+  autoCloseDMs?: boolean;
   executionMode: 'auto_background' | 'notify_confirm';
   autoCleanedCount?: number;
 }
