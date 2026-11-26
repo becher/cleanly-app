@@ -531,7 +531,7 @@ export function DiscordCleanModal({
         );
       } else if (silentMode) {
         // Nettoyage silencieux automatique 100%
-        executeDeletion();
+        executeDeletion(allFound);
       } else {
         // Affiche directement l'aperçu prêt à purger sans repasser par le choix de serveurs
         setStep('preview_messages');
@@ -1132,20 +1132,28 @@ export function DiscordCleanModal({
     );
   };
 
-  const recordCleanHistory = async (deleted: number, total: number, isInterrupted: boolean) => {
+  const recordCleanHistory = async (
+    deleted: number,
+    total: number,
+    isInterrupted: boolean,
+    customMessages?: DiscordMessage[]
+  ) => {
     if (deleted === 0 && total === 0) return;
     try {
       const targetName =
         selectedGuild?.id === 'all_guilds'
           ? `Tous les serveurs (${guilds.length} serveurs)`
-          : selectedGuild?.id === 'dms'
+          : selectedGuild?.id === 'dms' || selectedGuild?.id === '@me'
             ? 'Messages Privés (DMs)'
             : `${selectedGuild?.name ?? 'Discord'} (${selectedChannelIds.size} salon${selectedChannelIds.size > 1 ? 's' : ''})`;
 
       const dateOpt = DATE_FILTER_OPTIONS.find((o) => o.days === filterDays);
       const speedOpt = SPEED_OPTIONS.find((o) => o.ms === speedDelayMs);
 
-      const messagesToDelete = scannedMessages.filter((m) => selectedMessageIds.has(m.id));
+      const messagesToDelete =
+        customMessages && customMessages.length > 0
+          ? customMessages
+          : scannedMessages.filter((m) => selectedMessageIds.has(m.id));
 
       const newRecord = await useHistoryStore.getState().addRecord({
         platform: 'discord',
@@ -1174,14 +1182,17 @@ export function DiscordCleanModal({
     }
   };
 
-  const executeDeletion = async () => {
+  const executeDeletion = async (customMessages?: DiscordMessage[]) => {
     setStep('deleting');
     setDeletedCount(0);
     setIsPaused(false);
     pauseRef.current = false;
     stopRef.current = false;
 
-    const messagesToDelete = scannedMessages.filter((m) => selectedMessageIds.has(m.id));
+    const messagesToDelete =
+      customMessages && customMessages.length > 0
+        ? customMessages
+        : scannedMessages.filter((m) => selectedMessageIds.has(m.id));
     let count = 0;
 
     // Démarre la notification persistante d'arrière-plan (Foreground Service Android & iOS)
@@ -1249,7 +1260,7 @@ export function DiscordCleanModal({
       setCurrentStatus('✅ Nettoyage terminé avec succès !');
 
       // FEAT-03 : Fermeture automatique des DMs nettoyés si l'option est activée
-      if (autoCloseDMs && selectedGuild?.id === '@me') {
+      if (autoCloseDMs && (selectedGuild?.id === '@me' || selectedGuild?.id === 'dms')) {
         setCurrentStatus('🔒 Masquage et fermeture des DMs nettoyés...');
         const cleanedChannelIds = Array.from(selectedChannelIds);
         for (const chId of cleanedChannelIds) {
@@ -1281,9 +1292,15 @@ export function DiscordCleanModal({
       await new Promise<void>((resolve) => setTimeout(() => resolve(), 800));
     }
 
-    await recordCleanHistory(count, messagesToDelete.length, stopRef.current);
+    await recordCleanHistory(count, messagesToDelete.length, stopRef.current, messagesToDelete);
     setStep('complete');
     onFinished?.(count);
+
+    if (silentMode) {
+      setTimeout(() => {
+        handleFinishAndClose();
+      }, 1800);
+    }
   };
 
   const handleFinishAndClose = () => {
