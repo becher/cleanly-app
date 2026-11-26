@@ -397,7 +397,9 @@ class CleanNotificationService {
           ? '24 heures'
           : `${retentionDays} jours`;
       const freqText =
-        frequency === 'daily'
+        frequency === '1min'
+          ? 'dans 1 minute (test)'
+          : frequency === 'daily'
           ? 'quotidien'
           : frequency === 'weekly'
           ? 'hebdomadaire'

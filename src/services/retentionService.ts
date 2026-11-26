@@ -80,6 +80,7 @@ export class RetentionService {
     const periodStr = periodMap[rule.retentionDays] ?? `${rule.retentionDays} jours`;
 
     const freqMap: Record<string, string> = {
+      '1min': 'Dans 1 min (test)',
       daily: 'Chaque jour',
       weekly: 'Chaque semaine',
       monthly: 'Chaque mois',

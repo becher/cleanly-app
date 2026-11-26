@@ -53,7 +53,8 @@ const RETENTION_PERIODS = [
   { days: -2, label: 'Tous les messages', desc: 'Sans limite de date, purge l’ensemble de l’historique', icon: 'infinite-outline' },
 ];
 
-const FREQUENCIES: { id: 'daily' | 'weekly' | 'monthly'; label: string; desc: string; icon: string }[] = [
+const FREQUENCIES: { id: '1min' | 'daily' | 'weekly' | 'monthly'; label: string; desc: string; icon: string }[] = [
+  { id: '1min', label: '⚡ Dans 1 minute (Test réveil)', desc: 'Déclenche l’alarme native dans 60 secondes chrono', icon: 'flash-outline' },
   { id: 'daily', label: 'Quotidien', desc: 'Vérification automatique chaque jour', icon: 'today-outline' },
   { id: 'weekly', label: 'Hebdomadaire (Recommandé)', desc: 'Vérification automatique chaque semaine', icon: 'calendar-outline' },
   { id: 'monthly', label: 'Mensuel', desc: 'Vérification automatique chaque mois', icon: 'time-outline' },
@@ -185,7 +186,9 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
     }
 
     const intervalMs =
-      activeRule.frequency === 'daily'
+      activeRule.frequency === '1min'
+        ? 60 * 1000
+        : activeRule.frequency === 'daily'
         ? 24 * 3600 * 1000
         : activeRule.frequency === 'weekly'
         ? 7 * 24 * 3600 * 1000
@@ -211,7 +214,9 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
     });
 
     const freqLabel =
-      activeRule.frequency === 'daily'
+      activeRule.frequency === '1min'
+        ? 'dans 1 minute (test réveil)'
+        : activeRule.frequency === 'daily'
         ? 'chaque jour'
         : activeRule.frequency === 'weekly'
         ? 'chaque semaine'
