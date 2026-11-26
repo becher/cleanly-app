@@ -1,4 +1,5 @@
 // NetworkCard — Clean Light theme
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -32,6 +33,7 @@ type Props = {
   onClean?: () => void;
   retentionRule?: RetentionRule;
   onConfigureRetention?: () => void;
+  onTriggerRetentionClean?: () => void;
 };
 
 export function NetworkCard({
@@ -44,9 +46,34 @@ export function NetworkCard({
   onClean,
   retentionRule,
   onConfigureRetention,
+  onTriggerRetentionClean,
 }: Props) {
   const iconConfig = PLATFORM_ICONS[platformId];
   const isRetentionActive = retentionRule?.enabled;
+
+  // Compteur dynamique en temps réel (se rafraîchit chaque seconde)
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!isRetentionActive) return;
+    const timer = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isRetentionActive, retentionRule?.nextRunAt]);
+
+  const isDue = Boolean(
+    isRetentionActive &&
+      retentionRule?.nextRunAt &&
+      Date.now() >= retentionRule.nextRunAt
+  );
+
+  const handleRetentionPress = () => {
+    if (isDue && onTriggerRetentionClean) {
+      onTriggerRetentionClean();
+    } else {
+      onConfigureRetention?.();
+    }
+  };
 
   return (
     <View style={styles.card}>
@@ -81,15 +108,19 @@ export function NetworkCard({
         <TouchableOpacity
           style={[
             styles.retentionRow,
-            isRetentionActive ? styles.retentionRowActive : styles.retentionRowInactive,
+            isDue
+              ? styles.retentionRowDue
+              : isRetentionActive
+              ? styles.retentionRowActive
+              : styles.retentionRowInactive,
           ]}
-          onPress={onConfigureRetention}
+          onPress={handleRetentionPress}
           activeOpacity={0.8}
         >
           <Ionicons
-            name={isRetentionActive ? 'shield-checkmark' : 'shield-outline'}
+            name={isDue ? 'flash' : isRetentionActive ? 'shield-checkmark' : 'shield-outline'}
             size={16}
-            color={isRetentionActive ? '#10B981' : theme.text.muted}
+            color={isDue ? '#F59E0B' : isRetentionActive ? '#10B981' : theme.text.muted}
             style={{ marginRight: 8 }}
           />
           <View style={{ flex: 1 }}>
@@ -97,27 +128,40 @@ export function NetworkCard({
               <Text
                 style={[
                   styles.retentionTitle,
-                  isRetentionActive && { color: '#10B981', fontWeight: '700' },
+                  isDue
+                    ? { color: '#D97706', fontWeight: '800' }
+                    : isRetentionActive && { color: '#10B981', fontWeight: '700' },
                 ]}
               >
-                {isRetentionActive ? 'Auto-Clean actif' : 'Auto-Clean désactivé'}
+                {isDue
+                  ? '⚡ Purge prête !'
+                  : isRetentionActive
+                  ? 'Auto-Clean actif'
+                  : 'Auto-Clean désactivé'}
               </Text>
               {isRetentionActive && (
-                <Text style={styles.retentionBadgeNext}>
+                <Text
+                  style={[
+                    styles.retentionBadgeNext,
+                    isDue && { color: '#D97706', fontWeight: '700' },
+                  ]}
+                >
                   • {retentionService.formatNextRun(retentionRule)}
                 </Text>
               )}
             </View>
             <Text style={styles.retentionSub} numberOfLines={1}>
-              {isRetentionActive
+              {isDue
+                ? 'Appuyez pour lancer le nettoyage maintenant'
+                : isRetentionActive
                 ? retentionService.formatRuleSummary(retentionRule)
                 : 'Touchez pour configurer la purge automatique'}
             </Text>
           </View>
           <Ionicons
-            name="chevron-forward"
-            size={15}
-            color={isRetentionActive ? '#10B981' : theme.text.muted}
+            name={isDue ? 'arrow-forward-circle' : 'chevron-forward'}
+            size={isDue ? 18 : 15}
+            color={isDue ? '#D97706' : isRetentionActive ? '#10B981' : theme.text.muted}
           />
         </TouchableOpacity>
       )}
@@ -186,6 +230,10 @@ const styles = StyleSheet.create({
   retentionRowActive: {
     backgroundColor: '#10B9810A',
     borderColor: '#10B98140',
+  },
+  retentionRowDue: {
+    backgroundColor: '#F59E0B12',
+    borderColor: '#F59E0B60',
   },
   retentionRowInactive: {
     backgroundColor: theme.bg.raised,

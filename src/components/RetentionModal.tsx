@@ -66,6 +66,15 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
 
   const [selectedAccountId, setSelectedAccountId] = useState<string>(initialAccountId || '');
 
+  // Rafraîchissement dynamique chaque seconde
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   // États pour les menus déroulants (Dropdowns style vitesse)
   const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
   const [isFrequencyDropdownOpen, setIsFrequencyDropdownOpen] = useState(false);
@@ -217,7 +226,7 @@ export function RetentionModal({ visible, onClose, onTriggerClean, embedded = fa
     if (onTriggerClean) {
       onTriggerClean(
         targetAccount,
-        activeRule.retentionDays,
+        activeRule.retentionDays === 0 ? -1 : activeRule.retentionDays,
         activeRule.stealthMode,
         activeRule.ignorePinned
       );

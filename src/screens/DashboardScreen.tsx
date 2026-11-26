@@ -14,6 +14,7 @@ import { DiscordCleanModal } from '../components/DiscordCleanModal';
 import { RetentionModal } from '../components/RetentionModal';
 import { useRetentionStore } from '../store/retentionStore';
 import { retentionService } from '../services/retentionService';
+import { cleanNotificationService } from '../services/cleanNotificationService';
 import type { PlatformAccount } from '../types';
 
 function formatRelativeDate(timestamp: number): string {
@@ -54,6 +55,59 @@ export function DashboardScreen() {
     useRetentionStore.getState().loadRules().then(() => {
       retentionService.checkDueRetentionRules();
     });
+
+    // Surveillance en direct de l'échéance Auto-Clean (toutes les 2 secondes)
+    const timer = setInterval(async () => {
+      const { rules } = useRetentionStore.getState();
+      const accountsList = useAuthStore.getState().accounts;
+      const now = Date.now();
+
+      for (const rule of rules) {
+        if (!rule.enabled || !rule.nextRunAt) continue;
+
+        if (now >= rule.nextRunAt) {
+          const account = accountsList.find((a) => a.id === rule.accountId);
+          if (!account) continue;
+
+          // Déclencher l'alerte sonore et visuelle Notifee
+          await cleanNotificationService.notifyRetentionAlert({
+            platform: rule.platform,
+            accountName: account.displayName || account.username,
+            expiredCount: 0,
+            retentionDays: rule.retentionDays,
+          });
+
+          // Proposer directement l'action dans l'application si elle est ouverte
+          Alert.alert(
+            '🛡️ Auto-Clean : Purge prête !',
+            `Le délai d'Auto-Clean pour ${account.displayName || account.username} est atteint (${retentionService.formatRuleSummary(rule)}).\n\nVoulez-vous lancer le nettoyage maintenant ?`,
+            [
+              {
+                text: 'Plus tard',
+                style: 'cancel',
+                onPress: () => {
+                  useRetentionStore.getState().updateRuleLastRun(rule.id, 0);
+                },
+              },
+              {
+                text: '🧹 Purger maintenant',
+                style: 'default',
+                onPress: () => {
+                  useRetentionStore.getState().updateRuleLastRun(rule.id, 0);
+                  handleClean(account, rule.retentionDays === 0 ? -1 : rule.retentionDays);
+                },
+              },
+            ]
+          );
+
+          // Reprogrammer pour le cycle suivant pour éviter le spam
+          await useRetentionStore.getState().updateRuleLastRun(rule.id, 0);
+          break;
+        }
+      }
+    }, 2000);
+
+    return () => clearInterval(timer);
   }, [loadHistory]);
 
   const handleClean = (account: PlatformAccount, days?: number) => {
@@ -146,22 +200,50 @@ export function DashboardScreen() {
       {accounts.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Mes réseaux connectés</Text>
-          {accounts.map((account) => (
-            <NetworkCard
-              key={account.id}
-              platformId={account.platform}
-              name={account.displayName ?? account.platform}
-              color={PLATFORM_COLORS[account.platform] ?? theme.accent.primary}
-              isConnected
-              retentionRule={retentionRules.find((r) => r.accountId === account.id)}
-              onConfigureRetention={() => {
-                setSelectedRetentionAccountId(account.id);
-                setShowRetentionView(true);
-              }}
-              onConnect={() => {}}
-              onClean={() => handleClean(account)}
-            />
-          ))}
+          {accounts.map((account) => {
+            const rule = retentionRules.find((r) => r.accountId === account.id);
+            return (
+              <NetworkCard
+                key={account.id}
+                platformId={account.platform}
+                name={account.displayName ?? account.platform}
+                color={PLATFORM_COLORS[account.platform] ?? theme.accent.primary}
+                isConnected
+                retentionRule={rule}
+                onConfigureRetention={() => {
+                  setSelectedRetentionAccountId(account.id);
+                  setShowRetentionView(true);
+                }}
+                onTriggerRetentionClean={() => {
+                  Alert.alert(
+                    '⚡ Purge Auto-Clean prête !',
+                    `L'échéance d'Auto-Clean pour ${account.displayName || account.username} est atteinte.\n\nSouhaitez-vous lancer la purge des messages (${rule ? retentionService.formatRuleSummary(rule) : ''}) ?`,
+                    [
+                      {
+                        text: 'Modifier la règle',
+                        onPress: () => {
+                          setSelectedRetentionAccountId(account.id);
+                          setShowRetentionView(true);
+                        },
+                      },
+                      {
+                        text: '🧹 Purger maintenant',
+                        style: 'default',
+                        onPress: () => {
+                          if (rule) {
+                            useRetentionStore.getState().updateRuleLastRun(rule.id, 0);
+                          }
+                          handleClean(account, rule?.retentionDays === 0 ? -1 : rule?.retentionDays);
+                        },
+                      },
+                    ]
+                  );
+                }}
+                onConnect={() => {}}
+                onClean={() => handleClean(account)}
+              />
+            );
+          })}
         </View>
       )}
 

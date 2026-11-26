@@ -83,6 +83,12 @@ function getGuildIconUrl(guildId?: string, iconHash?: string | null): string | n
 
 const DATE_FILTER_OPTIONS = [
   {
+    days: -1,
+    title: '⚡ Plus de 1 minute (Test rapide)',
+    desc: 'Messages envoyés il y a plus de 60 secondes',
+    icon: 'flash-outline',
+  },
+  {
     days: 0,
     title: 'Tous les messages',
     desc: 'Aucune limite de date, supprime tout l’historique',
@@ -227,6 +233,15 @@ export function DiscordCleanModal({
 
   useEffect(() => {
     if (visible && token) {
+      if (initialFilterDays !== undefined) {
+        setFilterDays(initialFilterDays);
+      }
+      if (initialGhostMode !== undefined) {
+        setIsGhostModeEnabled(initialGhostMode);
+      }
+      if (initialIgnorePinned !== undefined) {
+        setIgnorePinned(initialIgnorePinned);
+      }
       loadGuilds();
     } else {
       setStep('select_guild');
@@ -398,7 +413,11 @@ export function DiscordCleanModal({
     setLoadingText('Recherche instantanée des messages...');
 
     const thresholdDate =
-      filterDays > 0 ? Date.now() - filterDays * 24 * 60 * 60 * 1000 : 0;
+      filterDays === -1
+        ? Date.now() - 60 * 1000
+        : filterDays > 0
+        ? Date.now() - filterDays * 24 * 60 * 60 * 1000
+        : 0;
     const lowerKeyword = filterKeyword.trim().toLowerCase();
     const linkRegex = /(https?:\/\/[^\s]+)/g;
     const allFound: DiscordMessage[] = [];
